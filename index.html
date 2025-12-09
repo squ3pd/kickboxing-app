@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кикбоксинг - Система регистрации</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Главная страница -->
+    <div id="homePage" class="page active">
+        <div class="header">
+            <h1>Кикбоксинг - Главная</h1>
+            <div class="welcome-section">
+                <h2>Добро пожаловать!</h2>
+                <p>Система регистрации и анализа физических нагрузок в кикбоксинге</p>
+            </div>
+        </div>
+
+        <div class="dashboard-cards">
+            <div class="card">
+                <div class="card-icon blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="currentColor"/>
+                    </svg>
+                </div>
+                <div class="card-count" id="athletesCount">0</div>
+                <div class="card-label">Спортсменов</div>
+            </div>
+            <div class="card">
+                <div class="card-icon green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.04L12 21.35Z" fill="currentColor"/>
+                    </svg>
+                </div>
+                <div class="card-count" id="workoutsCount">0</div>
+                <div class="card-label">Тренировок</div>
+            </div>
+        </div>
+
+        <div class="quick-actions">
+            <h3>Быстрые действия</h3>
+            <button class="action-btn blue" onclick="showPage('athletesPage')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="white"/>
+                </svg>
+                Добавить спортсмена
+            </button>
+            <button class="action-btn green" onclick="showPage('workoutPage')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M19 13H13V19H11V13H5V11H11V5H13V11H19V13Z" fill="white"/>
+                </svg>
+                Зарегистрировать тренировку
+            </button>
+            <button class="action-btn purple" onclick="showPage('standardsPage')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 3V21H21V3H3ZM19 19H5V5H19V19ZM7 7H17V9H7V7ZM7 11H17V13H7V11ZM7 15H14V17H7V15Z" fill="white"/>
+                </svg>
+                Таблица нормативов
+            </button>
+        </div>
+    </div>
+
+    <!-- Страница спортсменов -->
+    <div id="athletesPage" class="page">
+        <div class="page-header">
+            <button class="back-btn" onclick="showPage('homePage')">← Назад</button>
+            <h2>Спортсмены</h2>
+        </div>
+        <div class="content">
+            <button class="action-btn blue" onclick="showAddAthleteForm()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M19 13H13V19H11V13H5V11H11V5H13V11H19V13Z" fill="white"/>
+                </svg>
+                Добавить спортсмена
+            </button>
+            <div id="athletesList" class="athletes-list"></div>
+        </div>
+    </div>
+
+    <!-- Страница регистрации тренировки -->
+    <div id="workoutPage" class="page">
+        <div class="page-header">
+            <button class="back-btn" onclick="showPage('homePage')">← Назад</button>
+            <h2>Регистрация тренировки</h2>
+        </div>
+        <div class="content">
+            <div class="form-section">
+                <h3>Выбор спортсмена</h3>
+                <select id="athleteSelect" class="form-select">
+                    <option value="">Выберите спортсмена</option>
+                </select>
+            </div>
+
+            <div class="form-section">
+                <h3>Данные о тренировке</h3>
+                <label>Дата (ГГГГ-ММ-ДД)</label>
+                <input type="date" id="workoutDate" class="form-input" value="">
+                
+                <label>Тип занятия</label>
+                <div class="button-group">
+                    <button class="type-btn" data-type="training" onclick="selectType(this, 'training')">Тренировка</button>
+                    <button class="type-btn" data-type="control" onclick="selectType(this, 'control')">Контрольное занятие</button>
+                    <button class="type-btn" data-type="competition" onclick="selectType(this, 'competition')">Соревнование</button>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3>Добавить упражнение</h3>
+                <label>Тип упражнения</label>
+                <div class="button-group">
+                    <button class="exercise-type-btn" data-type="ofp" onclick="selectExerciseType(this, 'ofp')">ОФП</button>
+                    <button class="exercise-type-btn" data-type="spu" onclick="selectExerciseType(this, 'spu')">СПУ</button>
+                    <button class="exercise-type-btn" data-type="us" onclick="selectExerciseType(this, 'us')">УС</button>
+                    <button class="exercise-type-btn" data-type="usttm" onclick="selectExerciseType(this, 'usttm')">УСТТМ</button>
+                </div>
+                
+                <label>Продолжительность (мин)*</label>
+                <input type="number" id="duration" class="form-input" min="0" step="0.1">
+                
+                <label>ЧСС средний</label>
+                <input type="number" id="avgHR" class="form-input" min="0">
+                
+                <button class="action-btn green" onclick="addExercise()">
+                    Добавить упражнение
+                </button>
+            </div>
+
+            <div id="exercisesList" class="exercises-list"></div>
+
+            <div id="workoutSummary" class="summary-block"></div>
+
+            <button class="action-btn green save-btn" onclick="saveWorkout()" style="display: none;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z" fill="white"/>
+                </svg>
+                Сохранить тренировку
+            </button>
+        </div>
+    </div>
+
+    <!-- Страница таблицы нормативов -->
+    <div id="standardsPage" class="page">
+        <div class="page-header">
+            <button class="back-btn" onclick="showPage('homePage')">← Назад</button>
+            <h2>Таблица нормативов</h2>
+        </div>
+        <div class="content">
+            <div class="form-section">
+                <label>Выберите спортсмена</label>
+                <select id="standardsAthleteSelect" class="form-select" onchange="loadStandards()">
+                    <option value="">Выберите спортсмена</option>
+                </select>
+            </div>
+
+            <div class="standards-table-container">
+                <h3>Ввод нормативов</h3>
+                <table class="standards-table" id="standardsTable">
+                    <thead>
+                        <tr>
+                            <th>Норматив</th>
+                            <th>Результат</th>
+                            <th>Единица</th>
+                        </tr>
+                    </thead>
+                    <tbody id="standardsTableBody">
+                        <!-- Заполнится динамически -->
+                    </tbody>
+                </table>
+            </div>
+
+            <button class="action-btn green" onclick="saveStandards()">
+                Сохранить нормативы
+            </button>
+
+            <div id="resultsTable" class="results-table-container" style="display: none;">
+                <h3>Итоговая таблица</h3>
+                <table class="results-table" id="resultsTableContent">
+                    <thead>
+                        <tr>
+                            <th>Показатель</th>
+                            <th>Значение</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody">
+                        <!-- Заполнится динамически -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Нижняя навигация -->
+    <div class="bottom-nav">
+        <button class="nav-btn active" onclick="showPage('homePage')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M10 20V14H14V20H19V12H22L12 3L2 12H5V20H10Z" fill="currentColor"/>
+            </svg>
+        </button>
+        <button class="nav-btn" onclick="showPage('athletesPage')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="currentColor"/>
+            </svg>
+        </button>
+        <button class="nav-btn" onclick="showPage('workoutPage')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.04L12 21.35Z" fill="currentColor"/>
+            </svg>
+        </button>
+        <button class="nav-btn" onclick="showPage('standardsPage')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M3 3V21H21V3H3ZM19 19H5V5H19V19ZM7 7H17V9H7V7ZM7 11H17V13H7V11ZM7 15H14V17H7V15Z" fill="currentColor"/>
+            </svg>
+        </button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+

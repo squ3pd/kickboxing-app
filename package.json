@@ -1,0 +1,22 @@
+{
+  "name": "kickboxing-telegram-miniapp",
+  "version": "1.0.0",
+  "description": "Telegram Mini App для системы регистрации и анализа физических нагрузок в кикбоксинге",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node bot.js"
+  },
+  "keywords": [
+    "telegram",
+    "miniapp",
+    "kickboxing",
+    "sports"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.64.0"
+  }
+}
+
