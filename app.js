@@ -1,14 +1,41 @@
 // Инициализация Telegram Web App
 let tg = window.Telegram?.WebApp;
+let telegramUserId = null;
+
 if (tg) {
     tg.ready();
     tg.expand();
     // Настройка цветовой схемы
     tg.setHeaderColor('#667eea');
     tg.setBackgroundColor('#f5f5f5');
+    
+    // Получаем ID пользователя из Telegram
+    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        telegramUserId = tg.initDataUnsafe.user.id.toString();
+        console.log('👤 Telegram User ID:', telegramUserId);
+    } else if (tg.initData) {
+        // Парсим initData если нужно
+        try {
+            const params = new URLSearchParams(tg.initData);
+            const userStr = params.get('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                telegramUserId = user.id.toString();
+                console.log('👤 Telegram User ID (из initData):', telegramUserId);
+            }
+        } catch (e) {
+            console.warn('Не удалось получить User ID из initData');
+        }
+    }
+    
+    if (!telegramUserId) {
+        telegramUserId = 'user_' + Date.now();
+        console.warn('⚠️ User ID не найден, используем временный:', telegramUserId);
+    }
 } else {
     // Для тестирования вне Telegram
     console.warn('Telegram Web App API не доступен. Приложение работает в режиме тестирования.');
+    telegramUserId = 'test_user_' + Date.now();
     // Создаем заглушку для tg.showAlert
     window.Telegram = {
         WebApp: {
@@ -24,6 +51,9 @@ if (tg) {
     tg = window.Telegram.WebApp;
 }
 
+// Используем IndexedDB вместо API - работает полностью в браузере, без сервера
+const USE_INDEXEDDB = true; // Переключите на false, если хотите использовать API
+
 // Функция для безопасного показа уведомлений
 function showNotification(message) {
     if (tg && tg.showAlert) {
@@ -36,6 +66,19 @@ function showNotification(message) {
 // Хранилище данных
 let athletes = [];
 let workouts = [];
+
+// Инициализация IndexedDB
+let dbInitialized = false;
+async function initDatabase() {
+    if (dbInitialized) return;
+    try {
+        await kickboxingDB.init();
+        dbInitialized = true;
+        console.log('✅ База данных IndexedDB инициализирована');
+    } catch (error) {
+        console.error('❌ Ошибка инициализации базы данных:', error);
+    }
+}
 
 // Проверка доступности localStorage
 function isLocalStorageAvailable() {
@@ -50,7 +93,74 @@ function isLocalStorageAvailable() {
     }
 }
 
-// Функция для загрузки данных из localStorage
+// Функция для загрузки данных из IndexedDB
+async function loadDataFromIndexedDB() {
+    try {
+        await initDatabase();
+        
+        athletes = await kickboxingDB.getAthletes(telegramUserId);
+        workouts = await kickboxingDB.getWorkouts(telegramUserId);
+        
+        console.log('✅ Данные загружены из IndexedDB:', { 
+            athletes: athletes.length, 
+            workouts: workouts.length 
+        });
+        
+        return true;
+    } catch (error) {
+        console.error('❌ Ошибка при загрузке данных из IndexedDB:', error);
+        // Fallback на localStorage
+        loadDataFromStorage();
+        return false;
+    }
+}
+
+// Функция для загрузки данных из API (если нужно)
+async function loadDataFromAPI() {
+    try {
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-Telegram-User-Id': telegramUserId
+        };
+        
+        // Загружаем спортсменов
+        const athletesResponse = await fetch(`${API_BASE_URL}/athletes?userId=${telegramUserId}`, { headers });
+        if (athletesResponse.ok) {
+            athletes = await athletesResponse.json();
+            console.log('✅ Спортсмены загружены из API:', athletes.length);
+        } else {
+            console.error('❌ Ошибка загрузки спортсменов:', athletesResponse.status);
+            athletes = [];
+        }
+        
+        // Загружаем тренировки
+        const workoutsResponse = await fetch(`${API_BASE_URL}/workouts?userId=${telegramUserId}`, { headers });
+        if (workoutsResponse.ok) {
+            workouts = await workoutsResponse.json();
+            console.log('✅ Тренировки загружены из API:', workouts.length);
+        } else {
+            console.error('❌ Ошибка загрузки тренировок:', workoutsResponse.status);
+            workouts = [];
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('❌ Ошибка при загрузке данных из API:', error);
+        // Fallback на IndexedDB если API недоступен
+        return await loadDataFromIndexedDB();
+    }
+}
+
+// Основная функция загрузки данных
+async function loadData() {
+    if (USE_INDEXEDDB) {
+        return await loadDataFromIndexedDB();
+    } else {
+        return await loadDataFromAPI();
+    }
+}
+
+// Функция для загрузки данных из localStorage (fallback)
 function loadDataFromStorage() {
     if (!isLocalStorageAvailable()) {
         console.warn('⚠️ localStorage недоступен, используем пустые массивы');
@@ -157,9 +267,12 @@ let selectedExerciseType = null;
 let selectedWorkoutType = null;
 
 // Инициализация приложения
-document.addEventListener('DOMContentLoaded', function() {
-    // Перезагружаем данные из localStorage при каждом открытии
-    loadDataFromStorage();
+document.addEventListener('DOMContentLoaded', async function() {
+    // Инициализируем базу данных
+    await initDatabase();
+    
+    // Загружаем данные при каждом открытии
+    await loadData();
     
     // Устанавливаем сегодняшнюю дату по умолчанию
     document.getElementById('workoutDate').value = currentWorkout.date;
@@ -172,19 +285,19 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Перезагружаем данные при видимости страницы (когда пользователь возвращается)
-document.addEventListener('visibilitychange', function() {
+document.addEventListener('visibilitychange', async function() {
     if (!document.hidden) {
         console.log('👁️ Страница стала видимой, перезагружаем данные');
-        loadDataFromStorage();
+        await loadData();
         updateCounts();
         loadAthletes();
     }
 });
 
 // Перезагружаем данные при фокусе окна
-window.addEventListener('focus', function() {
+window.addEventListener('focus', async function() {
     console.log('🎯 Окно получило фокус, перезагружаем данные');
-    loadDataFromStorage();
+    await loadData();
     updateCounts();
     loadAthletes();
 });
@@ -204,14 +317,14 @@ function showPage(pageId) {
     updateNavigation();
     
     // Загружаем данные при переходе на страницу
-    loadDataFromStorage(); // Всегда перезагружаем данные при переходе
-    
-    if (pageId === 'athletesPage') {
-        loadAthletesList();
-    } else if (pageId === 'resultsPage') {
-        loadAthletesForResults();
-        loadWorkoutResults();
-    }
+    loadData().then(() => {
+        if (pageId === 'athletesPage') {
+            loadAthletesList();
+        } else if (pageId === 'resultsPage') {
+            loadAthletesForResults();
+            loadWorkoutResults();
+        }
+    });
 }
 
 function updateNavigation() {
@@ -248,40 +361,67 @@ function loadAthletes() {
             });
         }
     });
+    
+    console.log('👥 Спортсмены загружены в селекты:', athletes.length);
 }
 
-function showAddAthleteForm() {
+async function showAddAthleteForm() {
     const name = prompt('Введите имя спортсмена:');
     if (name && name.trim()) {
-        const athlete = {
-            id: Date.now().toString(),
-            name: name.trim(),
-            createdAt: new Date().toISOString()
-        };
-        athletes.push(athlete);
-        saveDataToStorage();
-        
-        // Дополнительная проверка сохранения
-        const saved = localStorage.getItem('athletes');
-        if (saved) {
-            console.log('✅ Спортсмен успешно сохранен:', JSON.parse(saved).length);
-        } else {
-            console.error('❌ Ошибка: данные не сохранились!');
+        try {
+            await initDatabase();
+            
+            const athlete = {
+                id: Date.now().toString(),
+                name: name.trim(),
+                createdAt: new Date().toISOString()
+            };
+            
+            if (USE_INDEXEDDB) {
+                await kickboxingDB.addAthlete(telegramUserId, athlete);
+            } else {
+                // API вариант
+                const response = await fetch(`${API_BASE_URL}/athletes?userId=${telegramUserId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-User-Id': telegramUserId
+                    },
+                    body: JSON.stringify({ name: name.trim() })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка сохранения');
+                }
+                
+                const savedAthlete = await response.json();
+                Object.assign(athlete, savedAthlete);
+            }
+            
+            athletes.push(athlete);
+            console.log('✅ Спортсмен успешно сохранен');
+            
+            loadAthletes();
+            loadAthletesList();
+            updateCounts();
+            showNotification('Спортсмен добавлен!');
+        } catch (error) {
+            console.error('❌ Ошибка при добавлении спортсмена:', error);
+            showNotification('Ошибка при сохранении спортсмена');
         }
-        
-        loadAthletes();
-        loadAthletesList();
-        updateCounts();
-        showNotification('Спортсмен добавлен!');
     }
 }
 
-function loadAthletesList() {
+async function loadAthletesList() {
     // Перезагружаем данные перед отображением
-    loadDataFromStorage();
+    await loadData();
     
     const list = document.getElementById('athletesList');
+    if (!list) return;
+    
     list.innerHTML = '';
+    
+    console.log('📋 Загрузка списка спортсменов, найдено:', athletes.length);
     
     if (athletes.length === 0) {
         list.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Нет спортсменов</p>';
@@ -297,15 +437,40 @@ function loadAthletesList() {
         `;
         list.appendChild(item);
     });
+    
+    console.log('✅ Список спортсменов отображен');
 }
 
-function deleteAthlete(id) {
+async function deleteAthlete(id) {
     if (confirm('Удалить спортсмена?')) {
-        athletes = athletes.filter(a => a.id !== id);
-        saveDataToStorage();
-        loadAthletes();
-        loadAthletesList();
-        updateCounts();
+        try {
+            await initDatabase();
+            
+            if (USE_INDEXEDDB) {
+                await kickboxingDB.deleteAthlete(telegramUserId, id);
+            } else {
+                // API вариант
+                const response = await fetch(`${API_BASE_URL}/athletes/${id}?userId=${telegramUserId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-Telegram-User-Id': telegramUserId
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка удаления');
+                }
+            }
+            
+            athletes = athletes.filter(a => a.id !== id);
+            loadAthletes();
+            loadAthletesList();
+            updateCounts();
+            showNotification('Спортсмен удален!');
+        } catch (error) {
+            console.error('❌ Ошибка при удалении спортсмена:', error);
+            showNotification('Ошибка при удалении спортсмена');
+        }
     }
 }
 
@@ -477,7 +642,7 @@ function updateWorkoutSummary() {
     `;
 }
 
-function saveWorkout() {
+async function saveWorkout() {
     const athleteId = document.getElementById('athleteSelect').value;
     const date = document.getElementById('workoutDate').value;
     
@@ -496,43 +661,76 @@ function saveWorkout() {
         return;
     }
     
-    const workout = {
-        id: Date.now().toString(),
-        athleteId: athleteId,
-        date: date,
-        type: selectedWorkoutType,
-        exercises: currentWorkout.exercises,
-        createdAt: new Date().toISOString()
-    };
-    
-    workouts.push(workout);
-    saveDataToStorage();
-    
-    // Сброс формы
-    currentWorkout = {
-        athleteId: null,
-        date: new Date().toISOString().split('T')[0],
-        type: null,
-        exercises: []
-    };
-    document.getElementById('athleteSelect').value = '';
-    document.getElementById('workoutDate').value = currentWorkout.date;
-    document.getElementById('duration').value = '';
-    document.getElementById('avgHR').value = '';
-    document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('selected'));
-    document.querySelectorAll('.exercise-type-btn').forEach(btn => btn.classList.remove('selected'));
-    document.getElementById('exercisesList').innerHTML = '';
-    document.getElementById('workoutSummary').innerHTML = '';
-    document.querySelector('.save-btn').style.display = 'none';
-    selectedExerciseType = null;
-    selectedWorkoutType = null;
-    
-    updateCounts();
-    showNotification('Тренировка сохранена!');
+    try {
+        await initDatabase();
+        
+        const workout = {
+            id: Date.now().toString(),
+            athleteId: athleteId,
+            date: date,
+            type: selectedWorkoutType,
+            exercises: currentWorkout.exercises,
+            createdAt: new Date().toISOString()
+        };
+        
+        if (USE_INDEXEDDB) {
+            await kickboxingDB.addWorkout(telegramUserId, workout);
+        } else {
+            // API вариант
+            const response = await fetch(`${API_BASE_URL}/workouts?userId=${telegramUserId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Telegram-User-Id': telegramUserId
+                },
+                body: JSON.stringify({
+                    athleteId: athleteId,
+                    date: date,
+                    type: selectedWorkoutType,
+                    exercises: currentWorkout.exercises
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Ошибка сохранения');
+            }
+            
+            const savedWorkout = await response.json();
+            Object.assign(workout, savedWorkout);
+        }
+        
+        workouts.push(workout);
+        console.log('✅ Тренировка успешно сохранена');
+        
+        // Сброс формы
+        currentWorkout = {
+            athleteId: null,
+            date: new Date().toISOString().split('T')[0],
+            type: null,
+            exercises: []
+        };
+        document.getElementById('athleteSelect').value = '';
+        document.getElementById('workoutDate').value = currentWorkout.date;
+        document.getElementById('duration').value = '';
+        document.getElementById('avgHR').value = '';
+        document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('selected'));
+        document.querySelectorAll('.exercise-type-btn').forEach(btn => btn.classList.remove('selected'));
+        document.getElementById('exercisesList').innerHTML = '';
+        document.getElementById('workoutSummary').innerHTML = '';
+        document.querySelector('.save-btn').style.display = 'none';
+        selectedExerciseType = null;
+        selectedWorkoutType = null;
+        
+        updateCounts();
+        showNotification('Тренировка сохранена!');
+    } catch (error) {
+        console.error('❌ Ошибка при сохранении тренировки:', error);
+        showNotification('Ошибка при сохранении тренировки');
+    }
 }
 
 // Отображение результатов тренировок
-function loadWorkoutResults() {
+async function loadWorkoutResults() {
     const athleteId = document.getElementById('resultsAthleteSelect')?.value;
     const container = document.getElementById('workoutResultsContainer');
     
@@ -543,9 +741,20 @@ function loadWorkoutResults() {
         return;
     }
     
-    // Обновляем данные из localStorage перед отображением
-    loadDataFromStorage();
-    const athleteWorkouts = workouts.filter(w => w.athleteId === athleteId);
+    // Обновляем данные перед отображением
+    await loadData();
+    
+    // Если используем IndexedDB, загружаем тренировки конкретного спортсмена
+    if (USE_INDEXEDDB) {
+        try {
+            await initDatabase();
+            workouts = await kickboxingDB.getWorkouts(telegramUserId, athleteId);
+        } catch (error) {
+            console.error('Ошибка загрузки тренировок:', error);
+        }
+    }
+    
+    const athleteWorkouts = workouts.filter(w => w.athlete_id === athleteId || w.athleteId === athleteId);
     
     if (athleteWorkouts.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Нет тренировок для этого спортсмена</p>';
@@ -561,7 +770,8 @@ function loadWorkoutResults() {
         const workoutCard = document.createElement('div');
         workoutCard.className = 'workout-result-card';
         
-        const athlete = athletes.find(a => a.id === workout.athleteId);
+        const workoutAthleteId = workout.athlete_id || workout.athleteId;
+        const athlete = athletes.find(a => a.id === workoutAthleteId);
         const workoutTypeName = {
             'training': 'Тренировка',
             'control': 'Контрольное занятие',
