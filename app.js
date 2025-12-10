@@ -126,7 +126,7 @@ function showAddAthleteForm() {
             createdAt: new Date().toISOString()
         };
         athletes.push(athlete);
-        localStorage.setItem('athletes', JSON.stringify(athletes));
+        saveDataToStorage();
         loadAthletes();
         loadAthletesList();
         updateCounts();
@@ -157,7 +157,7 @@ function loadAthletesList() {
 function deleteAthlete(id) {
     if (confirm('Удалить спортсмена?')) {
         athletes = athletes.filter(a => a.id !== id);
-        localStorage.setItem('athletes', JSON.stringify(athletes));
+        saveDataToStorage();
         loadAthletes();
         loadAthletesList();
         updateCounts();
@@ -361,7 +361,7 @@ function saveWorkout() {
     };
     
     workouts.push(workout);
-    localStorage.setItem('workouts', JSON.stringify(workouts));
+    saveDataToStorage();
     
     // Сброс формы
     currentWorkout = {
