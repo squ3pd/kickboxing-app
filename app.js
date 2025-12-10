@@ -36,7 +36,6 @@ function showNotification(message) {
 // Хранилище данных
 let athletes = JSON.parse(localStorage.getItem('athletes') || '[]');
 let workouts = JSON.parse(localStorage.getItem('workouts') || '[]');
-let standards = JSON.parse(localStorage.getItem('standards') || '{}');
 
 // Текущие данные для тренировки
 let currentWorkout = {
@@ -76,8 +75,9 @@ function showPage(pageId) {
     // Загружаем данные при переходе на страницу
     if (pageId === 'athletesPage') {
         loadAthletesList();
-    } else if (pageId === 'standardsPage') {
-        loadAthletesForStandards();
+    } else if (pageId === 'resultsPage') {
+        loadAthletesForResults();
+        loadWorkoutResults();
     }
 }
 
@@ -102,9 +102,9 @@ function updateCounts() {
 // Управление спортсменами
 function loadAthletes() {
     const select = document.getElementById('athleteSelect');
-    const standardsSelect = document.getElementById('standardsAthleteSelect');
+    const resultsSelect = document.getElementById('resultsAthleteSelect');
     
-    [select, standardsSelect].forEach(sel => {
+    [select, resultsSelect].forEach(sel => {
         if (sel) {
             sel.innerHTML = '<option value="">Выберите спортсмена</option>';
             athletes.forEach(athlete => {
@@ -164,7 +164,7 @@ function deleteAthlete(id) {
     }
 }
 
-function loadAthletesForStandards() {
+function loadAthletesForResults() {
     loadAthletes();
 }
 
@@ -293,7 +293,11 @@ function getExerciseTypeName(type) {
         'ofp': 'ОФП',
         'spu': 'СПУ',
         'us': 'УС',
-        'usttm': 'УСТТМ'
+        'usttm': 'УСТТМ',
+        'ttm': 'ТТМ',
+        'sfp': 'СФП',
+        'rv': 'РВ',
+        'rs': 'РС'
     };
     return names[type] || type.toUpperCase();
 }
@@ -382,178 +386,109 @@ function saveWorkout() {
     showNotification('Тренировка сохранена!');
 }
 
-// Таблица нормативов
-const standardFields = [
-    { id: 'run100', name: 'Бег 100м', unit: 'сек' },
-    { id: 'run3000', name: 'Бег 3000м', unit: 'мин' },
-    { id: 'pushups', name: 'Отжимания', unit: 'раз' },
-    { id: 'pullups', name: 'Подтягивания', unit: 'раз' },
-    { id: 'situp', name: 'Пресс', unit: 'раз' },
-    { id: 'jump', name: 'Прыжок в длину', unit: 'см' },
-    { id: 'flexibility', name: 'Гибкость', unit: 'см' }
-];
-
-function loadStandards() {
-    const athleteId = document.getElementById('standardsAthleteSelect').value;
+// Отображение результатов тренировок
+function loadWorkoutResults() {
+    const athleteId = document.getElementById('resultsAthleteSelect')?.value;
+    const container = document.getElementById('workoutResultsContainer');
+    
+    if (!container) return;
     
     if (!athleteId) {
-        document.getElementById('standardsTableBody').innerHTML = '';
-        document.getElementById('resultsTable').style.display = 'none';
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Выберите спортсмена для просмотра результатов</p>';
         return;
     }
     
-    const athleteStandards = standards[athleteId] || {};
-    const tbody = document.getElementById('standardsTableBody');
-    tbody.innerHTML = '';
+    const athleteWorkouts = workouts.filter(w => w.athleteId === athleteId);
     
-    standardFields.forEach(field => {
-        const row = document.createElement('tr');
-        const value = athleteStandards[field.id] || '';
-        row.innerHTML = `
-            <td>${field.name}</td>
-            <td>
-                <input type="number" 
-                       id="std_${field.id}" 
-                       value="${value}" 
-                       step="0.01"
-                       onchange="updateStandard('${athleteId}', '${field.id}', this.value)">
-            </td>
-            <td>${field.unit}</td>
+    if (athleteWorkouts.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Нет тренировок для этого спортсмена</p>';
+        return;
+    }
+    
+    // Сортируем тренировки по дате (новые сверху)
+    athleteWorkouts.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    container.innerHTML = '';
+    
+    athleteWorkouts.forEach(workout => {
+        const workoutCard = document.createElement('div');
+        workoutCard.className = 'workout-result-card';
+        
+        const athlete = athletes.find(a => a.id === workout.athleteId);
+        const workoutTypeName = {
+            'training': 'Тренировка',
+            'control': 'Контрольное занятие',
+            'competition': 'Соревнование'
+        }[workout.type] || workout.type;
+        
+        // Подсчет статистики
+        const totalDuration = workout.exercises.reduce((sum, e) => sum + e.duration, 0);
+        const avgHR = workout.exercises.reduce((sum, e) => sum + e.avgHR, 0) / workout.exercises.length;
+        const avgVOI = workout.exercises.reduce((sum, e) => sum + parseFloat(e.voi), 0) / workout.exercises.length;
+        
+        // Группировка упражнений по типам
+        const exercisesByType = {};
+        workout.exercises.forEach(ex => {
+            if (!exercisesByType[ex.type]) {
+                exercisesByType[ex.type] = [];
+            }
+            exercisesByType[ex.type].push(ex);
+        });
+        
+        workoutCard.innerHTML = `
+            <div class="workout-result-header">
+                <h3>${workoutTypeName}</h3>
+                <span class="workout-date">${formatDate(workout.date)}</span>
+            </div>
+            <div class="workout-result-summary">
+                <div class="summary-stat">
+                    <span class="stat-label">Общее время:</span>
+                    <span class="stat-value">${totalDuration.toFixed(1)} мин</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="stat-label">Средний ЧСС:</span>
+                    <span class="stat-value">${Math.round(avgHR)} уд/мин</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="stat-label">Средний УОИ:</span>
+                    <span class="stat-value">${avgVOI.toFixed(1)}%</span>
+                </div>
+            </div>
+            <div class="workout-exercises-table">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Тип упражнения</th>
+                            <th>Продолжительность (мин)</th>
+                            <th>ЧСС (уд/мин)</th>
+                            <th>Зона</th>
+                            <th>УОИ (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${workout.exercises.map(ex => `
+                            <tr>
+                                <td>${getExerciseTypeName(ex.type)}</td>
+                                <td>${ex.duration}</td>
+                                <td>${ex.avgHR}</td>
+                                <td>${ex.zone}</td>
+                                <td>${ex.voi}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
         `;
-        tbody.appendChild(row);
+        
+        container.appendChild(workoutCard);
     });
-    
-    calculateResults(athleteId, athleteStandards);
 }
 
-function updateStandard(athleteId, fieldId, value) {
-    if (!standards[athleteId]) {
-        standards[athleteId] = {};
-    }
-    standards[athleteId][fieldId] = parseFloat(value) || 0;
-    calculateResults(athleteId, standards[athleteId]);
-}
-
-function saveStandards() {
-    const athleteId = document.getElementById('standardsAthleteSelect').value;
-    
-    if (!athleteId) {
-        showNotification('Выберите спортсмена');
-        return;
-    }
-    
-    // Сохраняем все значения из полей ввода
-    standardFields.forEach(field => {
-        const input = document.getElementById(`std_${field.id}`);
-        if (input) {
-            updateStandard(athleteId, field.id, input.value);
-        }
-    });
-    
-    localStorage.setItem('standards', JSON.stringify(standards));
-    showNotification('Нормативы сохранены!');
-    calculateResults(athleteId, standards[athleteId]);
-}
-
-function calculateResults(athleteId, athleteStandards) {
-    // Здесь должны быть формулы из PDF файла
-    // Пока используем базовые расчеты
-    
-    const results = {};
-    
-    // Пример расчетов (нужно заменить формулами из PDF)
-    if (athleteStandards.run100) {
-        // Пример: оценка скорости
-        results['Оценка скорости'] = calculateSpeedScore(athleteStandards.run100);
-    }
-    
-    if (athleteStandards.run3000) {
-        results['Оценка выносливости'] = calculateEnduranceScore(athleteStandards.run3000);
-    }
-    
-    if (athleteStandards.pushups && athleteStandards.pullups && athleteStandards.situp) {
-        results['Оценка силы'] = calculateStrengthScore(
-            athleteStandards.pushups,
-            athleteStandards.pullups,
-            athleteStandards.situp
-        );
-    }
-    
-    if (athleteStandards.jump) {
-        results['Оценка прыгучести'] = calculateJumpScore(athleteStandards.jump);
-    }
-    
-    if (athleteStandards.flexibility) {
-        results['Оценка гибкости'] = calculateFlexibilityScore(athleteStandards.flexibility);
-    }
-    
-    // Общая оценка (пример)
-    const scores = Object.values(results).filter(v => typeof v === 'number');
-    if (scores.length > 0) {
-        results['Общая оценка'] = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
-    }
-    
-    renderResultsTable(results);
-}
-
-// Функции расчета (заменить формулами из PDF)
-function calculateSpeedScore(time) {
-    // Пример: чем меньше время, тем выше оценка
-    // Максимум 100 баллов за 10 секунд, минимум 0 за 20 секунд
-    if (time <= 10) return 100;
-    if (time >= 20) return 0;
-    return ((20 - time) / 10 * 100).toFixed(1);
-}
-
-function calculateEnduranceScore(time) {
-    // Пример: чем меньше время, тем выше оценка
-    // Максимум 100 баллов за 8 минут, минимум 0 за 20 минут
-    if (time <= 8) return 100;
-    if (time >= 20) return 0;
-    return ((20 - time) / 12 * 100).toFixed(1);
-}
-
-function calculateStrengthScore(pushups, pullups, situps) {
-    // Пример: среднее значение нормализованных оценок
-    const pushupScore = Math.min(100, (pushups / 50) * 100);
-    const pullupScore = Math.min(100, (pullups / 20) * 100);
-    const situpScore = Math.min(100, (situps / 60) * 100);
-    return ((pushupScore + pullupScore + situpScore) / 3).toFixed(1);
-}
-
-function calculateJumpScore(distance) {
-    // Пример: чем больше расстояние, тем выше оценка
-    // Максимум 100 баллов за 300 см, минимум 0 за 150 см
-    if (distance >= 300) return 100;
-    if (distance <= 150) return 0;
-    return ((distance - 150) / 150 * 100).toFixed(1);
-}
-
-function calculateFlexibilityScore(distance) {
-    // Пример: чем больше расстояние, тем выше оценка
-    // Максимум 100 баллов за 30 см, минимум 0 за 0 см
-    return Math.min(100, (distance / 30 * 100).toFixed(1));
-}
-
-function renderResultsTable(results) {
-    const container = document.getElementById('resultsTable');
-    const tbody = document.getElementById('resultsTableBody');
-    
-    if (Object.keys(results).length === 0) {
-        container.style.display = 'none';
-        return;
-    }
-    
-    container.style.display = 'block';
-    tbody.innerHTML = '';
-    
-    Object.entries(results).forEach(([key, value]) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${key}</td>
-            <td>${value}</td>
-        `;
-        tbody.appendChild(row);
-    });
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
 }
 
