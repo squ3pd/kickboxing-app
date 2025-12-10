@@ -322,7 +322,10 @@ function showPage(pageId) {
             loadAthletesList();
         } else if (pageId === 'resultsPage') {
             loadAthletesForResults();
-            loadWorkoutResults();
+            // Инициализируем правильный вид при переходе на страницу
+            setTimeout(() => {
+                switchView(currentView || 'detailed');
+            }, 100);
         }
     });
 }
@@ -854,41 +857,68 @@ let currentView = 'detailed';
 let chartInstances = [];
 
 function switchView(view) {
+    console.log('🔄 Переключение вида:', view);
     currentView = view;
     
-    const detailedBtn = document.getElementById('toggleDetailed');
-    const statisticsBtn = document.getElementById('toggleStatistics');
-    const chartsBtn = document.getElementById('toggleCharts');
-    const detailedContainer = document.getElementById('workoutResultsContainer');
-    const statisticsContainer = document.getElementById('statisticsContainer');
-    const chartsContainer = document.getElementById('chartsContainer');
-    
-    // Сбрасываем активные кнопки
-    [detailedBtn, statisticsBtn, chartsBtn].forEach(btn => {
-        if (btn) btn.classList.remove('active');
-    });
-    
-    // Скрываем все контейнеры
-    if (detailedContainer) detailedContainer.style.display = 'none';
-    if (statisticsContainer) statisticsContainer.style.display = 'none';
-    if (chartsContainer) chartsContainer.style.display = 'none';
-    
-    // Уничтожаем старые графики
-    chartInstances.forEach(chart => chart.destroy());
-    chartInstances = [];
-    
-    if (view === 'detailed') {
-        if (detailedBtn) detailedBtn.classList.add('active');
-        if (detailedContainer) detailedContainer.style.display = 'block';
-        loadWorkoutResults();
-    } else if (view === 'statistics') {
-        if (statisticsBtn) statisticsBtn.classList.add('active');
-        if (statisticsContainer) statisticsContainer.style.display = 'block';
-        loadStatistics();
-    } else if (view === 'charts') {
-        if (chartsBtn) chartsBtn.classList.add('active');
-        if (chartsContainer) chartsContainer.style.display = 'block';
-        loadCharts();
+    try {
+        const detailedBtn = document.getElementById('toggleDetailed');
+        const statisticsBtn = document.getElementById('toggleStatistics');
+        const chartsBtn = document.getElementById('toggleCharts');
+        const detailedContainer = document.getElementById('workoutResultsContainer');
+        const statisticsContainer = document.getElementById('statisticsContainer');
+        const chartsContainer = document.getElementById('chartsContainer');
+        
+        if (!detailedContainer && !statisticsContainer && !chartsContainer) {
+            console.error('❌ Контейнеры не найдены, возможно страница не загружена');
+            return;
+        }
+        
+        // Сбрасываем активные кнопки
+        [detailedBtn, statisticsBtn, chartsBtn].forEach(btn => {
+            if (btn) btn.classList.remove('active');
+        });
+        
+        // Скрываем все контейнеры
+        if (detailedContainer) detailedContainer.style.display = 'none';
+        if (statisticsContainer) statisticsContainer.style.display = 'none';
+        if (chartsContainer) chartsContainer.style.display = 'none';
+        
+        // Уничтожаем старые графики
+        if (chartInstances && chartInstances.length > 0) {
+            chartInstances.forEach(chart => {
+                try {
+                    chart.destroy();
+                } catch (e) {
+                    console.warn('Ошибка при уничтожении графика:', e);
+                }
+            });
+            chartInstances = [];
+        }
+        
+        if (view === 'detailed') {
+            if (detailedBtn) detailedBtn.classList.add('active');
+            if (detailedContainer) {
+                detailedContainer.style.display = 'block';
+                loadWorkoutResults();
+            }
+        } else if (view === 'statistics') {
+            if (statisticsBtn) statisticsBtn.classList.add('active');
+            if (statisticsContainer) {
+                statisticsContainer.style.display = 'block';
+                loadStatistics();
+            }
+        } else if (view === 'charts') {
+            if (chartsBtn) chartsBtn.classList.add('active');
+            if (chartsContainer) {
+                chartsContainer.style.display = 'block';
+                loadCharts();
+            }
+        }
+        
+        console.log('✅ Вид переключен:', view);
+    } catch (error) {
+        console.error('❌ Ошибка при переключении вида:', error);
+        showNotification('Ошибка при переключении вида');
     }
 }
 
@@ -907,52 +937,69 @@ async function loadCharts() {
     const athleteId = document.getElementById('resultsAthleteSelect')?.value;
     const container = document.getElementById('chartsContainer');
     
-    if (!container) return;
+    if (!container) {
+        console.error('❌ Контейнер графиков не найден');
+        return;
+    }
     
     if (!athleteId) {
         container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Выберите спортсмена для просмотра графиков</p>';
         return;
     }
     
-    // Обновляем данные
-    await loadData();
-    
-    // Если используем IndexedDB, загружаем тренировки конкретного спортсмена
-    if (USE_INDEXEDDB) {
-        try {
-            await initDatabase();
-            workouts = await kickboxingDB.getWorkouts(telegramUserId, athleteId);
-        } catch (error) {
-            console.error('Ошибка загрузки тренировок:', error);
-        }
-    }
-    
-    const athleteWorkouts = workouts.filter(w => w.athlete_id === athleteId || w.athleteId === athleteId);
-    
-    if (athleteWorkouts.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Нет тренировок для отображения графиков</p>';
+    // Проверяем наличие Chart.js
+    if (typeof Chart === 'undefined') {
+        container.innerHTML = '<p style="text-align: center; color: #f44336; padding: 20px;">Ошибка: Chart.js не загружен. Проверьте подключение к интернету.</p>';
+        console.error('❌ Chart.js не загружен');
         return;
     }
     
-    // Сортируем тренировки по дате
-    athleteWorkouts.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    container.innerHTML = '';
-    
-    // График 1: Динамика общей продолжительности тренировок
-    createDurationChart(container, athleteWorkouts);
-    
-    // График 2: Динамика среднего ЧСС
-    createHRChart(container, athleteWorkouts);
-    
-    // График 3: Динамика среднего УОИ
-    createVOIChart(container, athleteWorkouts);
-    
-    // График 4: Распределение по типам упражнений
-    createExerciseTypesChart(container, athleteWorkouts);
-    
-    // График 5: Количество тренировок по месяцам
-    createMonthlyWorkoutsChart(container, athleteWorkouts);
+    try {
+        // Обновляем данные
+        await loadData();
+        
+        // Если используем IndexedDB, загружаем тренировки конкретного спортсмена
+        if (USE_INDEXEDDB) {
+            try {
+                await initDatabase();
+                workouts = await kickboxingDB.getWorkouts(telegramUserId, athleteId);
+            } catch (error) {
+                console.error('Ошибка загрузки тренировок:', error);
+            }
+        }
+        
+        const athleteWorkouts = workouts.filter(w => w.athlete_id === athleteId || w.athleteId === athleteId);
+        
+        if (athleteWorkouts.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Нет тренировок для отображения графиков</p>';
+            return;
+        }
+        
+        // Сортируем тренировки по дате
+        athleteWorkouts.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        container.innerHTML = '';
+        
+        // График 1: Динамика общей продолжительности тренировок
+        createDurationChart(container, athleteWorkouts);
+        
+        // График 2: Динамика среднего ЧСС
+        createHRChart(container, athleteWorkouts);
+        
+        // График 3: Динамика среднего УОИ
+        createVOIChart(container, athleteWorkouts);
+        
+        // График 4: Распределение по типам упражнений
+        createExerciseTypesChart(container, athleteWorkouts);
+        
+        // График 5: Количество тренировок по месяцам
+        createMonthlyWorkoutsChart(container, athleteWorkouts);
+        
+        console.log('✅ Графики загружены');
+    } catch (error) {
+        console.error('❌ Ошибка при загрузке графиков:', error);
+        container.innerHTML = '<p style="text-align: center; color: #f44336; padding: 20px;">Ошибка при загрузке графиков. Проверьте консоль.</p>';
+    }
 }
 
 function createDurationChart(container, workouts) {
