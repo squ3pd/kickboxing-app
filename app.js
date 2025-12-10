@@ -849,3 +849,376 @@ function formatDate(dateString) {
     return `${day}.${month}.${year}`;
 }
 
+// Переключение между видами отображения
+let currentView = 'detailed';
+let chartInstances = [];
+
+function switchView(view) {
+    currentView = view;
+    
+    const detailedBtn = document.getElementById('toggleDetailed');
+    const statisticsBtn = document.getElementById('toggleStatistics');
+    const chartsBtn = document.getElementById('toggleCharts');
+    const detailedContainer = document.getElementById('workoutResultsContainer');
+    const statisticsContainer = document.getElementById('statisticsContainer');
+    const chartsContainer = document.getElementById('chartsContainer');
+    
+    // Сбрасываем активные кнопки
+    [detailedBtn, statisticsBtn, chartsBtn].forEach(btn => {
+        if (btn) btn.classList.remove('active');
+    });
+    
+    // Скрываем все контейнеры
+    if (detailedContainer) detailedContainer.style.display = 'none';
+    if (statisticsContainer) statisticsContainer.style.display = 'none';
+    if (chartsContainer) chartsContainer.style.display = 'none';
+    
+    // Уничтожаем старые графики
+    chartInstances.forEach(chart => chart.destroy());
+    chartInstances = [];
+    
+    if (view === 'detailed') {
+        if (detailedBtn) detailedBtn.classList.add('active');
+        if (detailedContainer) detailedContainer.style.display = 'block';
+        loadWorkoutResults();
+    } else if (view === 'statistics') {
+        if (statisticsBtn) statisticsBtn.classList.add('active');
+        if (statisticsContainer) statisticsContainer.style.display = 'block';
+        loadStatistics();
+    } else if (view === 'charts') {
+        if (chartsBtn) chartsBtn.classList.add('active');
+        if (chartsContainer) chartsContainer.style.display = 'block';
+        loadCharts();
+    }
+}
+
+function onAthleteSelectChange() {
+    if (currentView === 'detailed') {
+        loadWorkoutResults();
+    } else if (currentView === 'statistics') {
+        loadStatistics();
+    } else if (currentView === 'charts') {
+        loadCharts();
+    }
+}
+
+// Загрузка и отображение графиков
+async function loadCharts() {
+    const athleteId = document.getElementById('resultsAthleteSelect')?.value;
+    const container = document.getElementById('chartsContainer');
+    
+    if (!container) return;
+    
+    if (!athleteId) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Выберите спортсмена для просмотра графиков</p>';
+        return;
+    }
+    
+    // Обновляем данные
+    await loadData();
+    
+    // Если используем IndexedDB, загружаем тренировки конкретного спортсмена
+    if (USE_INDEXEDDB) {
+        try {
+            await initDatabase();
+            workouts = await kickboxingDB.getWorkouts(telegramUserId, athleteId);
+        } catch (error) {
+            console.error('Ошибка загрузки тренировок:', error);
+        }
+    }
+    
+    const athleteWorkouts = workouts.filter(w => w.athlete_id === athleteId || w.athleteId === athleteId);
+    
+    if (athleteWorkouts.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Нет тренировок для отображения графиков</p>';
+        return;
+    }
+    
+    // Сортируем тренировки по дате
+    athleteWorkouts.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    container.innerHTML = '';
+    
+    // График 1: Динамика общей продолжительности тренировок
+    createDurationChart(container, athleteWorkouts);
+    
+    // График 2: Динамика среднего ЧСС
+    createHRChart(container, athleteWorkouts);
+    
+    // График 3: Динамика среднего УОИ
+    createVOIChart(container, athleteWorkouts);
+    
+    // График 4: Распределение по типам упражнений
+    createExerciseTypesChart(container, athleteWorkouts);
+    
+    // График 5: Количество тренировок по месяцам
+    createMonthlyWorkoutsChart(container, athleteWorkouts);
+}
+
+function createDurationChart(container, workouts) {
+    const card = document.createElement('div');
+    card.className = 'chart-card';
+    card.innerHTML = '<h3>Динамика продолжительности тренировок</h3><canvas id="durationChart"></canvas>';
+    container.appendChild(card);
+    
+    const ctx = document.getElementById('durationChart').getContext('2d');
+    const labels = workouts.map(w => formatDate(w.date));
+    const durations = workouts.map(w => {
+        return w.exercises.reduce((sum, e) => sum + e.duration, 0);
+    });
+    
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Продолжительность (мин)',
+                data: durations,
+                borderColor: '#2196f3',
+                backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Минуты'
+                    }
+                }
+            }
+        }
+    });
+    
+    chartInstances.push(chart);
+}
+
+function createHRChart(container, workouts) {
+    const card = document.createElement('div');
+    card.className = 'chart-card';
+    card.innerHTML = '<h3>Динамика среднего ЧСС</h3><canvas id="hrChart"></canvas>';
+    container.appendChild(card);
+    
+    const ctx = document.getElementById('hrChart').getContext('2d');
+    const labels = workouts.map(w => formatDate(w.date));
+    const avgHR = workouts.map(w => {
+        return Math.round(w.exercises.reduce((sum, e) => sum + e.avgHR, 0) / w.exercises.length);
+    });
+    
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Средний ЧСС (уд/мин)',
+                data: avgHR,
+                borderColor: '#f44336',
+                backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'ЧСС (уд/мин)'
+                    }
+                }
+            }
+        }
+    });
+    
+    chartInstances.push(chart);
+}
+
+function createVOIChart(container, workouts) {
+    const card = document.createElement('div');
+    card.className = 'chart-card';
+    card.innerHTML = '<h3>Динамика среднего УОИ</h3><canvas id="voiChart"></canvas>';
+    container.appendChild(card);
+    
+    const ctx = document.getElementById('voiChart').getContext('2d');
+    const labels = workouts.map(w => formatDate(w.date));
+    const avgVOI = workouts.map(w => {
+        return parseFloat((w.exercises.reduce((sum, e) => sum + parseFloat(e.voi), 0) / w.exercises.length).toFixed(1));
+    });
+    
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Средний УОИ (%)',
+                data: avgVOI,
+                borderColor: '#4caf50',
+                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'УОИ (%)'
+                    }
+                }
+            }
+        }
+    });
+    
+    chartInstances.push(chart);
+}
+
+function createExerciseTypesChart(container, workouts) {
+    const card = document.createElement('div');
+    card.className = 'chart-card';
+    card.innerHTML = '<h3>Распределение по типам упражнений</h3><canvas id="exerciseTypesChart"></canvas>';
+    container.appendChild(card);
+    
+    const ctx = document.getElementById('exerciseTypesChart').getContext('2d');
+    const exerciseTypes = {};
+    
+    workouts.forEach(workout => {
+        workout.exercises.forEach(ex => {
+            const typeName = getExerciseTypeName(ex.type);
+            if (!exerciseTypes[typeName]) {
+                exerciseTypes[typeName] = 0;
+            }
+            exerciseTypes[typeName] += ex.duration;
+        });
+    });
+    
+    const labels = Object.keys(exerciseTypes);
+    const data = Object.values(exerciseTypes);
+    const colors = [
+        '#2196f3', '#4caf50', '#ff9800', '#9c27b0',
+        '#f44336', '#00bcd4', '#ffeb3b', '#795548'
+    ];
+    
+    const chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+    
+    chartInstances.push(chart);
+}
+
+function createMonthlyWorkoutsChart(container, workouts) {
+    const card = document.createElement('div');
+    card.className = 'chart-card';
+    card.innerHTML = '<h3>Количество тренировок по месяцам</h3><canvas id="monthlyChart"></canvas>';
+    container.appendChild(card);
+    
+    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    const monthlyData = {};
+    
+    workouts.forEach(workout => {
+        const date = new Date(workout.date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const monthNames = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+        const monthLabel = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+        
+        if (!monthlyData[monthKey]) {
+            monthlyData[monthKey] = { label: monthLabel, count: 0 };
+        }
+        monthlyData[monthKey].count++;
+    });
+    
+    const sortedMonths = Object.keys(monthlyData).sort();
+    const labels = sortedMonths.map(key => monthlyData[key].label);
+    const data = sortedMonths.map(key => monthlyData[key].count);
+    
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Количество тренировок',
+                data: data,
+                backgroundColor: '#667eea',
+                borderColor: '#764ba2',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    },
+                    title: {
+                        display: true,
+                        text: 'Количество'
+                    }
+                }
+            }
+        }
+    });
+    
+    chartInstances.push(chart);
+}
+
+// Заглушка для loadStatistics (если функция не существует)
+function loadStatistics() {
+    const container = document.getElementById('statisticsContainer');
+    if (container) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Статистика по периодам будет здесь</p>';
+    }
+}
+
