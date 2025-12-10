@@ -34,8 +34,116 @@ function showNotification(message) {
 }
 
 // Хранилище данных
-let athletes = JSON.parse(localStorage.getItem('athletes') || '[]');
-let workouts = JSON.parse(localStorage.getItem('workouts') || '[]');
+let athletes = [];
+let workouts = [];
+
+// Проверка доступности localStorage
+function isLocalStorageAvailable() {
+    try {
+        const test = '__localStorage_test__';
+        localStorage.setItem(test, test);
+        localStorage.removeItem(test);
+        return true;
+    } catch (e) {
+        console.error('❌ localStorage недоступен:', e);
+        return false;
+    }
+}
+
+// Функция для загрузки данных из localStorage
+function loadDataFromStorage() {
+    if (!isLocalStorageAvailable()) {
+        console.warn('⚠️ localStorage недоступен, используем пустые массивы');
+        athletes = [];
+        workouts = [];
+        return;
+    }
+    
+    try {
+        const athletesData = localStorage.getItem('athletes');
+        const workoutsData = localStorage.getItem('workouts');
+        
+        if (athletesData) {
+            athletes = JSON.parse(athletesData);
+            if (!Array.isArray(athletes)) {
+                console.warn('⚠️ Данные спортсменов повреждены, сбрасываем');
+                athletes = [];
+            }
+        } else {
+            athletes = [];
+        }
+        
+        if (workoutsData) {
+            workouts = JSON.parse(workoutsData);
+            if (!Array.isArray(workouts)) {
+                console.warn('⚠️ Данные тренировок повреждены, сбрасываем');
+                workouts = [];
+            }
+        } else {
+            workouts = [];
+        }
+        
+        console.log('✅ Данные загружены из localStorage:', { 
+            athletes: athletes.length, 
+            workouts: workouts.length 
+        });
+    } catch (error) {
+        console.error('❌ Ошибка при загрузке данных:', error);
+        athletes = [];
+        workouts = [];
+    }
+}
+
+// Функция для сохранения данных в localStorage
+function saveDataToStorage() {
+    if (!isLocalStorageAvailable()) {
+        console.error('❌ localStorage недоступен, данные не могут быть сохранены');
+        showNotification('Ошибка: localStorage недоступен. Данные не будут сохранены.');
+        return;
+    }
+    
+    try {
+        const athletesStr = JSON.stringify(athletes);
+        const workoutsStr = JSON.stringify(workouts);
+        
+        localStorage.setItem('athletes', athletesStr);
+        localStorage.setItem('workouts', workoutsStr);
+        
+        // Проверяем, что данные действительно сохранились
+        const checkAthletes = localStorage.getItem('athletes');
+        const checkWorkouts = localStorage.getItem('workouts');
+        
+        if (checkAthletes && checkWorkouts) {
+            const parsedAthletes = JSON.parse(checkAthletes);
+            const parsedWorkouts = JSON.parse(checkWorkouts);
+            console.log('💾 Данные успешно сохранены в localStorage:', { 
+                athletes: parsedAthletes.length, 
+                workouts: parsedWorkouts.length 
+            });
+        } else {
+            console.error('❌ Данные не сохранились в localStorage!');
+            throw new Error('Данные не сохранились');
+        }
+    } catch (error) {
+        console.error('❌ Ошибка при сохранении данных:', error);
+        // Пытаемся сохранить снова через небольшую задержку
+        setTimeout(() => {
+            try {
+                if (isLocalStorageAvailable()) {
+                    localStorage.setItem('athletes', JSON.stringify(athletes));
+                    localStorage.setItem('workouts', JSON.stringify(workouts));
+                    console.log('✅ Повторная попытка сохранения успешна');
+                }
+            } catch (e) {
+                console.error('❌ Повторная попытка сохранения не удалась:', e);
+                showNotification('Ошибка при сохранении данных. Проверьте консоль.');
+            }
+        }, 100);
+    }
+}
+
+// Загружаем данные при инициализации скрипта
+loadDataFromStorage();
 
 // Текущие данные для тренировки
 let currentWorkout = {
@@ -50,12 +158,35 @@ let selectedWorkoutType = null;
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', function() {
+    // Перезагружаем данные из localStorage при каждом открытии
+    loadDataFromStorage();
+    
     // Устанавливаем сегодняшнюю дату по умолчанию
     document.getElementById('workoutDate').value = currentWorkout.date;
     
     updateCounts();
     loadAthletes();
     updateNavigation();
+    
+    console.log('🚀 Приложение инициализировано, данные загружены');
+});
+
+// Перезагружаем данные при видимости страницы (когда пользователь возвращается)
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+        console.log('👁️ Страница стала видимой, перезагружаем данные');
+        loadDataFromStorage();
+        updateCounts();
+        loadAthletes();
+    }
+});
+
+// Перезагружаем данные при фокусе окна
+window.addEventListener('focus', function() {
+    console.log('🎯 Окно получило фокус, перезагружаем данные');
+    loadDataFromStorage();
+    updateCounts();
+    loadAthletes();
 });
 
 // Навигация между страницами
@@ -73,6 +204,8 @@ function showPage(pageId) {
     updateNavigation();
     
     // Загружаем данные при переходе на страницу
+    loadDataFromStorage(); // Всегда перезагружаем данные при переходе
+    
     if (pageId === 'athletesPage') {
         loadAthletesList();
     } else if (pageId === 'resultsPage') {
@@ -127,6 +260,15 @@ function showAddAthleteForm() {
         };
         athletes.push(athlete);
         saveDataToStorage();
+        
+        // Дополнительная проверка сохранения
+        const saved = localStorage.getItem('athletes');
+        if (saved) {
+            console.log('✅ Спортсмен успешно сохранен:', JSON.parse(saved).length);
+        } else {
+            console.error('❌ Ошибка: данные не сохранились!');
+        }
+        
         loadAthletes();
         loadAthletesList();
         updateCounts();
@@ -135,6 +277,9 @@ function showAddAthleteForm() {
 }
 
 function loadAthletesList() {
+    // Перезагружаем данные перед отображением
+    loadDataFromStorage();
+    
     const list = document.getElementById('athletesList');
     list.innerHTML = '';
     
@@ -398,6 +543,8 @@ function loadWorkoutResults() {
         return;
     }
     
+    // Обновляем данные из localStorage перед отображением
+    loadDataFromStorage();
     const athleteWorkouts = workouts.filter(w => w.athleteId === athleteId);
     
     if (athleteWorkouts.length === 0) {
