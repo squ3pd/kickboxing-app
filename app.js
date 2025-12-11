@@ -318,8 +318,8 @@ function showPage(pageId) {
     
     // Загружаем данные при переходе на страницу
     loadData().then(() => {
-        if (pageId === 'athletesPage') {
-            loadAthletesList();
+    if (pageId === 'athletesPage') {
+        loadAthletesList();
         } else if (pageId === 'resultsPage') {
             loadAthletesForResults();
             // Инициализируем правильный вид при переходе на страницу
@@ -410,11 +410,11 @@ async function showAddAthleteForm() {
         try {
             await initDatabase();
             
-            const athlete = {
-                id: Date.now().toString(),
-                name: name.trim(),
-                createdAt: new Date().toISOString()
-            };
+        const athlete = {
+            id: Date.now().toString(),
+            name: name.trim(),
+            createdAt: new Date().toISOString()
+        };
             
             if (USE_INDEXEDDB) {
                 await kickboxingDB.addAthlete(telegramUserId, athlete);
@@ -437,13 +437,13 @@ async function showAddAthleteForm() {
                 Object.assign(athlete, savedAthlete);
             }
             
-            athletes.push(athlete);
+        athletes.push(athlete);
             console.log('✅ Спортсмен успешно сохранен');
             
-            loadAthletes();
-            loadAthletesList();
-            updateCounts();
-            showNotification('Спортсмен добавлен!');
+        loadAthletes();
+        loadAthletesList();
+        updateCounts();
+        showNotification('Спортсмен добавлен!');
         } catch (error) {
             console.error('❌ Ошибка при добавлении спортсмена:', error);
             showNotification('Ошибка при сохранении спортсмена');
@@ -501,10 +501,10 @@ async function deleteAthlete(id) {
                 }
             }
             
-            athletes = athletes.filter(a => a.id !== id);
-            loadAthletes();
-            loadAthletesList();
-            updateCounts();
+        athletes = athletes.filter(a => a.id !== id);
+        loadAthletes();
+        loadAthletesList();
+        updateCounts();
             showNotification('Спортсмен удален!');
         } catch (error) {
             console.error('❌ Ошибка при удалении спортсмена:', error);
@@ -702,15 +702,15 @@ async function saveWorkout() {
     
     try {
         await initDatabase();
-        
-        const workout = {
-            id: Date.now().toString(),
-            athleteId: athleteId,
-            date: date,
-            type: selectedWorkoutType,
-            exercises: currentWorkout.exercises,
-            createdAt: new Date().toISOString()
-        };
+    
+    const workout = {
+        id: Date.now().toString(),
+        athleteId: athleteId,
+        date: date,
+        type: selectedWorkoutType,
+        exercises: currentWorkout.exercises,
+        createdAt: new Date().toISOString()
+    };
         
         if (USE_INDEXEDDB) {
             await kickboxingDB.addWorkout(telegramUserId, workout);
@@ -737,31 +737,31 @@ async function saveWorkout() {
             const savedWorkout = await response.json();
             Object.assign(workout, savedWorkout);
         }
-        
-        workouts.push(workout);
+    
+    workouts.push(workout);
         console.log('✅ Тренировка успешно сохранена');
-        
-        // Сброс формы
-        currentWorkout = {
-            athleteId: null,
-            date: new Date().toISOString().split('T')[0],
-            type: null,
-            exercises: []
-        };
-        document.getElementById('athleteSelect').value = '';
-        document.getElementById('workoutDate').value = currentWorkout.date;
-        document.getElementById('duration').value = '';
-        document.getElementById('avgHR').value = '';
-        document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('selected'));
-        document.querySelectorAll('.exercise-type-btn').forEach(btn => btn.classList.remove('selected'));
-        document.getElementById('exercisesList').innerHTML = '';
-        document.getElementById('workoutSummary').innerHTML = '';
-        document.querySelector('.save-btn').style.display = 'none';
-        selectedExerciseType = null;
-        selectedWorkoutType = null;
-        
-        updateCounts();
-        showNotification('Тренировка сохранена!');
+    
+    // Сброс формы
+    currentWorkout = {
+        athleteId: null,
+        date: new Date().toISOString().split('T')[0],
+        type: null,
+        exercises: []
+    };
+    document.getElementById('athleteSelect').value = '';
+    document.getElementById('workoutDate').value = currentWorkout.date;
+    document.getElementById('duration').value = '';
+    document.getElementById('avgHR').value = '';
+    document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('selected'));
+    document.querySelectorAll('.exercise-type-btn').forEach(btn => btn.classList.remove('selected'));
+    document.getElementById('exercisesList').innerHTML = '';
+    document.getElementById('workoutSummary').innerHTML = '';
+    document.querySelector('.save-btn').style.display = 'none';
+    selectedExerciseType = null;
+    selectedWorkoutType = null;
+    
+    updateCounts();
+    showNotification('Тренировка сохранена!');
     } catch (error) {
         console.error('❌ Ошибка при сохранении тренировки:', error);
         showNotification('Ошибка при сохранении тренировки');
@@ -906,9 +906,9 @@ function switchView(view) {
         
         if (!detailedContainer && !statisticsContainer && !chartsContainer) {
             console.error('❌ Контейнеры не найдены, возможно страница не загружена');
-            return;
-        }
-        
+        return;
+    }
+    
         // Сбрасываем активные кнопки
         [detailedBtn, statisticsBtn, chartsBtn].forEach(btn => {
             if (btn) btn.classList.remove('active');
@@ -1303,95 +1303,5 @@ function loadStatistics() {
     if (container) {
         container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Статистика по периодам будет здесь</p>';
     }
-}
-
-// Обработчик встряхивания телефона для тряски виджетов
-let lastShakeTime = 0;
-let shakeThreshold = 15; // Порог для обнаружения встряхивания
-let lastAcceleration = { x: 0, y: 0, z: 0 };
-
-function handleShake(event) {
-    const acceleration = event.accelerationIncludingGravity || event.acceleration;
-    
-    if (!acceleration) return;
-    
-    const currentTime = Date.now();
-    const timeDiff = currentTime - lastShakeTime;
-    
-    // Проверяем изменение ускорения
-    const deltaX = Math.abs(acceleration.x - lastAcceleration.x);
-    const deltaY = Math.abs(acceleration.y - lastAcceleration.y);
-    const deltaZ = Math.abs(acceleration.z - lastAcceleration.z);
-    
-    const totalDelta = deltaX + deltaY + deltaZ;
-    
-    if (totalDelta > shakeThreshold && timeDiff > 500) {
-        lastShakeTime = currentTime;
-        shakeWidgets();
-    }
-    
-    lastAcceleration = {
-        x: acceleration.x || 0,
-        y: acceleration.y || 0,
-        z: acceleration.z || 0
-    };
-}
-
-function shakeWidgets() {
-    // Находим все виджеты и карточки
-    const cards = document.querySelectorAll('.card');
-    const buttons = document.querySelectorAll('.action-btn, .exercise-type-btn, .toggle-btn');
-    const forms = document.querySelectorAll('.form-section');
-    
-    // Применяем класс shake ко всем элементам
-    [...cards, ...buttons, ...forms].forEach((element, index) => {
-        element.classList.remove('shake');
-        // Небольшая задержка для каждого элемента для эффекта каскада
-        setTimeout(() => {
-            element.classList.add('shake');
-            setTimeout(() => {
-                element.classList.remove('shake');
-            }, 500);
-        }, index * 30);
-    });
-}
-
-// Инициализация обработчика встряхивания
-if (window.DeviceMotionEvent) {
-    // Запрашиваем разрешение на доступ к акселерометру (для iOS 13+)
-    if (typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission()
-            .then(response => {
-                if (response === 'granted') {
-                    window.addEventListener('devicemotion', handleShake);
-                }
-            })
-            .catch(console.error);
-    } else {
-        // Для Android и других платформ
-        window.addEventListener('devicemotion', handleShake);
-    }
-}
-
-// Альтернативный метод через DeviceOrientationEvent (для совместимости)
-if (window.DeviceOrientationEvent) {
-    let lastBeta = 0;
-    let lastGamma = 0;
-    
-    window.addEventListener('deviceorientation', (event) => {
-        const beta = event.beta || 0;
-        const gamma = event.gamma || 0;
-        
-        const deltaBeta = Math.abs(beta - lastBeta);
-        const deltaGamma = Math.abs(gamma - lastGamma);
-        
-        if ((deltaBeta > 20 || deltaGamma > 20) && Date.now() - lastShakeTime > 500) {
-            lastShakeTime = Date.now();
-            shakeWidgets();
-        }
-        
-        lastBeta = beta;
-        lastGamma = gamma;
-    });
 }
 
