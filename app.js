@@ -1305,3 +1305,93 @@ function loadStatistics() {
     }
 }
 
+// Обработчик встряхивания телефона для тряски виджетов
+let lastShakeTime = 0;
+let shakeThreshold = 15; // Порог для обнаружения встряхивания
+let lastAcceleration = { x: 0, y: 0, z: 0 };
+
+function handleShake(event) {
+    const acceleration = event.accelerationIncludingGravity || event.acceleration;
+    
+    if (!acceleration) return;
+    
+    const currentTime = Date.now();
+    const timeDiff = currentTime - lastShakeTime;
+    
+    // Проверяем изменение ускорения
+    const deltaX = Math.abs(acceleration.x - lastAcceleration.x);
+    const deltaY = Math.abs(acceleration.y - lastAcceleration.y);
+    const deltaZ = Math.abs(acceleration.z - lastAcceleration.z);
+    
+    const totalDelta = deltaX + deltaY + deltaZ;
+    
+    if (totalDelta > shakeThreshold && timeDiff > 500) {
+        lastShakeTime = currentTime;
+        shakeWidgets();
+    }
+    
+    lastAcceleration = {
+        x: acceleration.x || 0,
+        y: acceleration.y || 0,
+        z: acceleration.z || 0
+    };
+}
+
+function shakeWidgets() {
+    // Находим все виджеты и карточки
+    const cards = document.querySelectorAll('.card');
+    const buttons = document.querySelectorAll('.action-btn, .exercise-type-btn, .toggle-btn');
+    const forms = document.querySelectorAll('.form-section');
+    
+    // Применяем класс shake ко всем элементам
+    [...cards, ...buttons, ...forms].forEach((element, index) => {
+        element.classList.remove('shake');
+        // Небольшая задержка для каждого элемента для эффекта каскада
+        setTimeout(() => {
+            element.classList.add('shake');
+            setTimeout(() => {
+                element.classList.remove('shake');
+            }, 500);
+        }, index * 30);
+    });
+}
+
+// Инициализация обработчика встряхивания
+if (window.DeviceMotionEvent) {
+    // Запрашиваем разрешение на доступ к акселерометру (для iOS 13+)
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission()
+            .then(response => {
+                if (response === 'granted') {
+                    window.addEventListener('devicemotion', handleShake);
+                }
+            })
+            .catch(console.error);
+    } else {
+        // Для Android и других платформ
+        window.addEventListener('devicemotion', handleShake);
+    }
+}
+
+// Альтернативный метод через DeviceOrientationEvent (для совместимости)
+if (window.DeviceOrientationEvent) {
+    let lastBeta = 0;
+    let lastGamma = 0;
+    
+    window.addEventListener('deviceorientation', (event) => {
+        const beta = event.beta || 0;
+        const gamma = event.gamma || 0;
+        
+        const deltaBeta = Math.abs(beta - lastBeta);
+        const deltaGamma = Math.abs(gamma - lastGamma);
+        
+        if ((deltaBeta > 20 || deltaGamma > 20) && Date.now() - lastShakeTime > 500) {
+            lastShakeTime = Date.now();
+            shakeWidgets();
+        }
+        
+        lastBeta = beta;
+        lastGamma = gamma;
+    });
+}
+

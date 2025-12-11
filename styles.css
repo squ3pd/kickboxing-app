@@ -780,6 +780,23 @@ body::before {
     }
 }
 
+/* Анимация тряски для виджетов */
+@keyframes shake {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translate(-8px, -8px) rotate(-3deg);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translate(8px, 8px) rotate(3deg);
+    }
+}
+
+.shake {
+    animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) !important;
+}
+
 @keyframes selectedPulse {
     0%, 100% {
         box-shadow: 0 8px 24px rgba(76, 175, 80, 0.5);
