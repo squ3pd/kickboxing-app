@@ -525,11 +525,13 @@ async function deleteAthlete(id) {
                 }
             }
             
-        athletes = athletes.filter(a => a.id !== id);
-        loadAthletes();
-        loadAthletesList();
-        updateCounts();
-            showNotification('Спортсмен удален!');
+            // Обновляем данные
+            athletes = athletes.filter(a => a.id !== id);
+            workouts = workouts.filter(w => w.athleteId !== id);
+            loadAthletes();
+            loadAthletesList();
+            updateCounts();
+            showNotification('Спортсмен и все его тренировки удалены!');
         } catch (error) {
             console.error('❌ Ошибка при удалении спортсмена:', error);
             showNotification('Ошибка при удалении спортсмена');
