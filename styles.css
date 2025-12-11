@@ -6,20 +6,44 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background-color: #f5f5f5;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    background-attachment: fixed;
     color: #333;
     padding-bottom: 80px;
     min-height: 100vh;
+    transition: background 0.3s ease;
 }
 
 /* Страницы */
 .page {
     display: none;
     padding-bottom: 20px;
+    animation: pageFadeIn 0.3s ease-out;
 }
 
 .page.active {
     display: block;
+    animation: pageSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes pageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes pageFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 /* Заголовок главной страницы */
@@ -61,10 +85,33 @@ body {
 
 .card {
     background: white;
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 20px;
     text-align: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transition: left 0.5s;
+}
+
+.card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.card:hover::before {
+    left: 100%;
 }
 
 .card-icon {
@@ -125,11 +172,38 @@ body {
     gap: 10px;
     margin-bottom: 12px;
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
 }
 
 .action-btn:active {
-    opacity: 0.8;
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn:active::before {
+    width: 300px;
+    height: 300px;
 }
 
 .action-btn.blue {
@@ -170,7 +244,22 @@ body {
     font-size: 18px;
     color: #2196f3;
     cursor: pointer;
-    padding: 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.back-btn:hover {
+    background: rgba(33, 150, 243, 0.1);
+    transform: translateX(-4px);
+    color: #1976d2;
+}
+
+.back-btn:active {
+    transform: translateX(-2px);
 }
 
 /* Контент */
@@ -181,10 +270,27 @@ body {
 /* Форма */
 .form-section {
     background: white;
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: sectionFadeIn 0.3s ease-out;
+}
+
+.form-section:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+@keyframes sectionFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .form-section h3 {
@@ -211,17 +317,26 @@ body {
 .form-select {
     width: 100%;
     padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    border: 2px solid #ddd;
+    border-radius: 10px;
     font-size: 16px;
     background: white;
     color: #333;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.form-input:hover,
+.form-select:hover {
+    border-color: #bbb;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .form-input:focus,
 .form-select:focus {
     outline: none;
     border-color: #2196f3;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+    transform: translateY(-1px);
 }
 
 /* Группы кнопок */
@@ -237,25 +352,53 @@ body {
     flex: 1;
     min-width: 100px;
     padding: 12px 16px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    border: 2px solid #ddd;
+    border-radius: 10px;
     background: #f5f5f5;
     color: #333;
     font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.type-btn:hover,
+.exercise-type-btn:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    border-color: #bbb;
+}
+
+.type-btn:active,
+.exercise-type-btn:active {
+    transform: translateY(0) scale(0.98);
 }
 
 .type-btn.selected {
-    background-color: #4caf50;
+    background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
     color: white;
     border-color: #4caf50;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+    animation: pulse 2s infinite;
 }
 
 .exercise-type-btn.selected {
-    background-color: #9c27b0;
+    background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
     color: white;
     border-color: #9c27b0;
+    box-shadow: 0 4px 12px rgba(156, 39, 176, 0.4);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+    }
+    50% {
+        box-shadow: 0 4px 20px rgba(76, 175, 80, 0.6);
+    }
 }
 
 /* Список упражнений */
@@ -271,6 +414,25 @@ body {
     border-left: 4px solid #9c27b0;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: slideIn 0.3s ease-out;
+}
+
+.exercise-item:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-left-width: 6px;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 .exercise-header {
@@ -287,8 +449,8 @@ body {
 }
 
 .remove-exercise {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: #f44336;
     color: white;
@@ -297,8 +459,20 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: bold;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(244, 67, 54, 0.3);
+}
+
+.remove-exercise:hover {
+    transform: scale(1.15) rotate(90deg);
+    background: #d32f2f;
+    box-shadow: 0 4px 8px rgba(244, 67, 54, 0.4);
+}
+
+.remove-exercise:active {
+    transform: scale(0.9) rotate(90deg);
 }
 
 .exercise-details {
@@ -309,12 +483,50 @@ body {
 
 /* Блок итогов */
 .summary-block {
-    background: white;
-    border-radius: 12px;
+    background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+    border-radius: 16px;
     padding: 20px;
     margin-bottom: 20px;
     border: 2px solid #2196f3;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: summaryPulse 2s infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+.summary-block::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(33, 150, 243, 0.1), transparent);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    100% {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+}
+
+@keyframes summaryPulse {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+    }
+    50% {
+        box-shadow: 0 4px 20px rgba(33, 150, 243, 0.3);
+    }
+}
+
+.summary-block:hover {
+    transform: scale(1.02);
+    border-color: #1976d2;
 }
 
 .summary-block h3 {
@@ -336,6 +548,21 @@ body {
     left: 20px;
     right: 20px;
     z-index: 100;
+    animation: saveButtonBounce 0.5s ease-out;
+}
+
+@keyframes saveButtonBounce {
+    0% {
+        opacity: 0;
+        transform: translateY(20px) scale(0.9);
+    }
+    50% {
+        transform: translateY(-5px) scale(1.05);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 /* Список спортсменов */
@@ -352,21 +579,95 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: fadeIn 0.4s ease-out;
+}
+
+.athlete-item:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(90deg, #fff 0%, #f8f9fa 100%);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .athlete-name {
     font-size: 16px;
     font-weight: 500;
     color: #333;
+    transition: color 0.3s;
+}
+
+.athlete-item:hover .athlete-name {
+    color: #2196f3;
+}
+
+.athlete-item button {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 8px;
+}
+
+.athlete-item button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(244, 67, 54, 0.3);
+}
+
+.athlete-item button:active {
+    transform: scale(0.95);
 }
 
 /* Результаты тренировок */
 .workout-result-card {
     background: white;
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: cardSlideIn 0.4s ease-out;
+    position: relative;
+    overflow: hidden;
+}
+
+.workout-result-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(180deg, #2196f3, #9c27b0);
+    transform: scaleY(0);
+    transition: transform 0.3s;
+}
+
+.workout-result-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.workout-result-card:hover::before {
+    transform: scaleY(1);
+}
+
+@keyframes cardSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .workout-result-header {
@@ -457,10 +758,46 @@ body {
 /* Графики */
 .chart-card {
     background: white;
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: chartFadeIn 0.5s ease-out;
+    position: relative;
+    overflow: hidden;
+}
+
+.chart-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #2196f3, #9c27b0, #4caf50);
+    transform: scaleX(0);
+    transition: transform 0.5s;
+}
+
+.chart-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.chart-card:hover::after {
+    transform: scaleX(1);
+}
+
+@keyframes chartFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .chart-card h3 {
@@ -491,18 +828,56 @@ body {
     flex: 1;
     padding: 12px 16px;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     background: #f5f5f5;
     color: #666;
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.toggle-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s;
+}
+
+.toggle-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background: #e0e0e0;
+}
+
+.toggle-btn:hover::before {
+    left: 100%;
+}
+
+.toggle-btn:active {
+    transform: translateY(0);
 }
 
 .toggle-btn.active {
-    background: #2196f3;
+    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
     color: white;
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+    animation: activePulse 2s infinite;
+}
+
+@keyframes activePulse {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+    }
+    50% {
+        box-shadow: 0 4px 16px rgba(33, 150, 243, 0.6);
+    }
 }
 
 .toggle-btn:not(.active):hover {
@@ -525,11 +900,30 @@ body {
 
 .period-stat-card {
     background: white;
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     border-left: 4px solid #2196f3;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: fadeInUp 0.4s ease-out;
+}
+
+.period-stat-card:hover {
+    transform: translateX(4px) translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    border-left-width: 6px;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .period-header {
@@ -646,18 +1040,59 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     min-width: 60px;
     min-height: 60px;
+    border-radius: 12px;
+    position: relative;
+}
+
+.nav-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(33, 150, 243, 0.1);
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s;
+}
+
+.nav-btn:hover {
+    color: #2196f3;
+    transform: scale(1.1);
+    background: rgba(33, 150, 243, 0.05);
+}
+
+.nav-btn:hover::before {
+    width: 50px;
+    height: 50px;
+}
+
+.nav-btn:active {
+    transform: scale(0.95);
 }
 
 .nav-btn svg {
     width: 28px;
     height: 28px;
+    transition: transform 0.3s;
+}
+
+.nav-btn:hover svg {
+    transform: scale(1.1);
 }
 
 .nav-btn.active {
     color: #2196f3;
+    background: rgba(33, 150, 243, 0.1);
+}
+
+.nav-btn.active::before {
+    width: 50px;
+    height: 50px;
 }
 
 /* Адаптивность */
