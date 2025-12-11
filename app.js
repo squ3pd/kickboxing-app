@@ -342,10 +342,46 @@ function updateNavigation() {
     });
 }
 
-// Обновление счетчиков
+// Обновление счетчиков с анимацией
 function updateCounts() {
-    document.getElementById('athletesCount').textContent = athletes.length;
-    document.getElementById('workoutsCount').textContent = workouts.length;
+    const athletesCountEl = document.getElementById('athletesCount');
+    const workoutsCountEl = document.getElementById('workoutsCount');
+    
+    if (athletesCountEl) {
+        animateCount(athletesCountEl, athletes.length);
+    }
+    
+    if (workoutsCountEl) {
+        animateCount(workoutsCountEl, workouts.length);
+    }
+}
+
+// Анимация счетчика
+function animateCount(element, targetValue) {
+    const currentValue = parseInt(element.textContent) || 0;
+    const duration = 800;
+    const startTime = Date.now();
+    
+    function update() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Используем easing функцию для плавности
+        const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+        const current = Math.round(currentValue + (targetValue - currentValue) * easeOutCubic);
+        
+        element.textContent = current;
+        element.setAttribute('data-count', current);
+        
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        } else {
+            element.textContent = targetValue;
+            element.setAttribute('data-count', targetValue);
+        }
+    }
+    
+    update();
 }
 
 // Управление спортсменами

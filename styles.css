@@ -337,10 +337,50 @@ body::before {
 }
 
 .card-count {
-    font-size: 32px;
+    font-size: 36px;
     font-weight: bold;
-    color: #333;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     margin-bottom: 4px;
+    animation: countGlow 2s ease-in-out infinite;
+    position: relative;
+}
+
+.card-count::after {
+    content: attr(data-count);
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: blur(8px);
+    opacity: 0.5;
+    z-index: -1;
+    animation: countShadow 2s ease-in-out infinite;
+}
+
+@keyframes countGlow {
+    0%, 100% {
+        filter: drop-shadow(0 0 5px rgba(102, 126, 234, 0.5));
+    }
+    50% {
+        filter: drop-shadow(0 0 15px rgba(102, 126, 234, 0.8));
+    }
+}
+
+@keyframes countShadow {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.3;
+    }
 }
 
 .card-label {
@@ -535,27 +575,63 @@ body::before {
 
 /* Форма */
 .form-section {
-    background: white;
-    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 249, 250, 0.95) 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 20px;
     padding: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    animation: sectionFadeIn 0.3s ease-out;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: sectionEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.form-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #2196f3, #9c27b0, #4caf50);
+    background-size: 200% 100%;
+    animation: sectionLine 3s linear infinite;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.5s;
 }
 
 .form-section:hover {
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
 }
 
-@keyframes sectionFadeIn {
+.form-section:hover::before {
+    transform: scaleX(1);
+}
+
+@keyframes sectionEntrance {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: perspective(1000px) rotateX(10deg) translateY(30px) scale(0.9);
+        filter: blur(10px);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: perspective(1000px) rotateX(0deg) translateY(0) scale(1);
+        filter: blur(0);
+    }
+}
+
+@keyframes sectionLine {
+    0% {
+        background-position: 0% 0%;
+    }
+    100% {
+        background-position: 200% 0%;
     }
 }
 
