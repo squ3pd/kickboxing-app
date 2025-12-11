@@ -481,14 +481,38 @@ async function loadAthletesList() {
 }
 
 async function deleteAthlete(id) {
-    if (confirm('Удалить спортсмена?')) {
+    if (confirm('Удалить спортсмена? Все его тренировки также будут удалены.')) {
         try {
             await initDatabase();
             
             if (USE_INDEXEDDB) {
+                // Сначала удаляем все тренировки спортсмена
+                await kickboxingDB.deleteWorkoutsByAthleteId(telegramUserId, id);
+                // Затем удаляем самого спортсмена
                 await kickboxingDB.deleteAthlete(telegramUserId, id);
             } else {
-                // API вариант
+                // API вариант - удаляем тренировки
+                const workoutsResponse = await fetch(`${API_BASE_URL}/workouts?userId=${telegramUserId}&athleteId=${id}`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Telegram-User-Id': telegramUserId
+                    }
+                });
+                
+                if (workoutsResponse.ok) {
+                    const workouts = await workoutsResponse.json();
+                    // Удаляем каждую тренировку
+                    for (const workout of workouts) {
+                        await fetch(`${API_BASE_URL}/workouts/${workout.id}?userId=${telegramUserId}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'X-Telegram-User-Id': telegramUserId
+                            }
+                        });
+                    }
+                }
+                
+                // Удаляем спортсмена
                 const response = await fetch(`${API_BASE_URL}/athletes/${id}?userId=${telegramUserId}`, {
                     method: 'DELETE',
                     headers: {

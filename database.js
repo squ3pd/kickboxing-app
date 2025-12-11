@@ -219,6 +219,61 @@ class KickboxingDB {
         });
     }
 
+    // Удалить все тренировки спортсмена
+    async deleteWorkoutsByAthleteId(userId, athleteId) {
+        return new Promise((resolve, reject) => {
+            if (!this.db) {
+                reject(new Error('База данных не инициализирована'));
+                return;
+            }
+
+            const transaction = this.db.transaction(['workouts'], 'readwrite');
+            const store = transaction.objectStore('workouts');
+            const index = store.index('userId');
+            const request = index.getAll(userId);
+
+            request.onsuccess = () => {
+                const workouts = request.result;
+                const workoutsToDelete = workouts.filter(w => w.athleteId === athleteId);
+                
+                if (workoutsToDelete.length === 0) {
+                    console.log('✅ Нет тренировок для удаления');
+                    resolve(0);
+                    return;
+                }
+
+                let deletedCount = 0;
+                let deletePromises = workoutsToDelete.map(workout => {
+                    return new Promise((resolveDelete, rejectDelete) => {
+                        const deleteRequest = store.delete(workout.id);
+                        deleteRequest.onsuccess = () => {
+                            deletedCount++;
+                            resolveDelete();
+                        };
+                        deleteRequest.onerror = () => {
+                            rejectDelete(deleteRequest.error);
+                        };
+                    });
+                });
+
+                Promise.all(deletePromises)
+                    .then(() => {
+                        console.log(`✅ Удалено ${deletedCount} тренировок спортсмена ${athleteId}`);
+                        resolve(deletedCount);
+                    })
+                    .catch((error) => {
+                        console.error('❌ Ошибка удаления тренировок:', error);
+                        reject(error);
+                    });
+            };
+
+            request.onerror = () => {
+                console.error('❌ Ошибка получения тренировок:', request.error);
+                reject(request.error);
+            };
+        });
+    }
+
     // Получить статистику
     async getStats(userId) {
         const [athletes, workouts] = await Promise.all([
