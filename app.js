@@ -901,11 +901,11 @@ async function loadWorkoutResults() {
                 <table class="results-table">
                     <thead>
                         <tr>
-                            <th>Тип упражнения</th>
-                            <th>Продолжительность (мин)</th>
-                            <th>ЧСС (уд/мин)</th>
+                            <th>Тип</th>
+                            <th>Время<br>(мин)</th>
+                            <th>ЧСС<br>(уд/мин)</th>
                             <th>Зона</th>
-                            <th>УОИ (%)</th>
+                            <th>УОИ<br>(%)</th>
                         </tr>
                     </thead>
                     <tbody>
