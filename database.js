@@ -234,7 +234,11 @@ class KickboxingDB {
 
             request.onsuccess = () => {
                 const workouts = request.result;
-                const workoutsToDelete = workouts.filter(w => w.athleteId === athleteId);
+                // Проверяем оба варианта поля (athleteId и athlete_id для совместимости)
+                const workoutsToDelete = workouts.filter(w => {
+                    const workoutAthleteId = w.athlete_id || w.athleteId;
+                    return workoutAthleteId === athleteId;
+                });
                 
                 if (workoutsToDelete.length === 0) {
                     console.log('✅ Нет тренировок для удаления');
