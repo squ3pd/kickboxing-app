@@ -1346,6 +1346,7 @@ function createMonthlyWorkoutsChart(container, workouts) {
 
 // Загрузка и отображение статистики по периодам
 async function loadStatistics() {
+    console.log('📊 Начало загрузки статистики...');
     const athleteId = document.getElementById('resultsAthleteSelect')?.value;
     const container = document.getElementById('statisticsContainer');
     
@@ -1355,39 +1356,70 @@ async function loadStatistics() {
     }
     
     if (!athleteId) {
+        console.log('⚠️ Спортсмен не выбран');
         container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Выберите спортсмена для просмотра статистики</p>';
         return;
     }
     
+    console.log('👤 Выбранный спортсмен ID:', athleteId);
+    
     try {
+        // Показываем индикатор загрузки
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Загрузка статистики...</p>';
+        
         // Обновляем данные
         await loadData();
+        console.log('📦 Данные загружены. Всего тренировок:', workouts.length);
         
         // Если используем IndexedDB, загружаем тренировки конкретного спортсмена
         if (USE_INDEXEDDB) {
             try {
                 await initDatabase();
                 workouts = await kickboxingDB.getWorkouts(telegramUserId, athleteId);
+                console.log('💾 Тренировки загружены из IndexedDB:', workouts.length);
             } catch (error) {
-                console.error('Ошибка загрузки тренировок:', error);
+                console.error('❌ Ошибка загрузки тренировок из IndexedDB:', error);
             }
         }
         
-        const athleteWorkouts = workouts.filter(w => w.athlete_id === athleteId || w.athleteId === athleteId);
+        // Фильтруем тренировки спортсмена (проверяем оба варианта полей)
+        const athleteWorkouts = workouts.filter(w => {
+            const workoutAthleteId = w.athlete_id || w.athleteId;
+            return workoutAthleteId === athleteId;
+        });
+        
+        console.log('🏋️ Тренировки спортсмена:', athleteWorkouts.length);
         
         if (athleteWorkouts.length === 0) {
             container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Нет тренировок для отображения статистики</p>';
             return;
         }
         
+        // Проверяем, что у тренировок есть упражнения
+        const validWorkouts = athleteWorkouts.filter(w => w.exercises && Array.isArray(w.exercises) && w.exercises.length > 0);
+        console.log('✅ Валидных тренировок:', validWorkouts.length);
+        
+        if (validWorkouts.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Нет тренировок с упражнениями для отображения статистики</p>';
+            return;
+        }
+        
         // Сортируем тренировки по дате
-        athleteWorkouts.sort((a, b) => new Date(a.date) - new Date(b.date));
+        validWorkouts.sort((a, b) => {
+            const dateA = new Date(a.date);
+            const dateB = new Date(b.date);
+            return dateA - dateB;
+        });
+        
+        console.log('📅 Тренировки отсортированы. Первая дата:', validWorkouts[0]?.date, 'Последняя:', validWorkouts[validWorkouts.length - 1]?.date);
         
         // Группируем тренировки по месяцам
-        const monthlyStats = groupByMonth(athleteWorkouts);
+        const monthlyStats = groupByMonth(validWorkouts);
+        console.log('📆 Статистика по месяцам:', Object.keys(monthlyStats).length, 'месяцев');
         
         // Группируем тренировки по неделям
-        const weeklyStats = groupByWeek(athleteWorkouts);
+        const weeklyStats = groupByWeek(validWorkouts);
+        console.log('📅 Статистика по неделям:', Object.keys(weeklyStats).length, 'недель');
         
         // Отображаем статистику
         container.innerHTML = '';
@@ -1424,10 +1456,16 @@ async function loadStatistics() {
             container.appendChild(weeklySection);
         }
         
-        console.log('✅ Статистика загружена');
+        // Если нет данных для отображения
+        if (Object.keys(monthlyStats).length === 0 && Object.keys(weeklyStats).length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Не удалось сгруппировать тренировки по периодам. Проверьте даты тренировок.</p>';
+        }
+        
+        console.log('✅ Статистика успешно загружена и отображена');
     } catch (error) {
         console.error('❌ Ошибка при загрузке статистики:', error);
-        container.innerHTML = '<p style="text-align: center; color: #f44336; padding: 20px;">Ошибка при загрузке статистики. Проверьте консоль.</p>';
+        console.error('Stack trace:', error.stack);
+        container.innerHTML = `<p style="text-align: center; color: #f44336; padding: 20px;">Ошибка при загрузке статистики: ${error.message}<br>Проверьте консоль для деталей.</p>`;
     }
 }
 
@@ -1436,49 +1474,78 @@ function groupByMonth(workouts) {
     const monthlyStats = {};
     
     workouts.forEach(workout => {
-        const date = new Date(workout.date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
-                           'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-        const monthLabel = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-        
-        if (!monthlyStats[monthKey]) {
-            monthlyStats[monthKey] = {
-                label: monthLabel,
-                workouts: [],
-                totalDuration: 0,
-                totalExercises: 0,
-                avgHR: 0,
-                avgVOI: 0,
-                exerciseTypes: {}
-            };
-        }
-        
-        monthlyStats[monthKey].workouts.push(workout);
-        monthlyStats[monthKey].totalDuration += workout.exercises.reduce((sum, e) => sum + e.duration, 0);
-        monthlyStats[monthKey].totalExercises += workout.exercises.length;
-        
-        // Подсчет среднего ЧСС и УОИ
-        const workoutAvgHR = workout.exercises.reduce((sum, e) => sum + e.avgHR, 0) / workout.exercises.length;
-        const workoutAvgVOI = workout.exercises.reduce((sum, e) => sum + parseFloat(e.voi), 0) / workout.exercises.length;
-        monthlyStats[monthKey].avgHR += workoutAvgHR;
-        monthlyStats[monthKey].avgVOI += workoutAvgVOI;
-        
-        // Подсчет по типам упражнений
-        workout.exercises.forEach(ex => {
-            const typeName = getExerciseTypeName(ex.type);
-            if (!monthlyStats[monthKey].exerciseTypes[typeName]) {
-                monthlyStats[monthKey].exerciseTypes[typeName] = 0;
+        try {
+            // Парсим дату, поддерживаем разные форматы
+            let date;
+            if (typeof workout.date === 'string') {
+                date = new Date(workout.date);
+            } else {
+                date = workout.date;
             }
-            monthlyStats[monthKey].exerciseTypes[typeName] += ex.duration;
-        });
+            
+            // Проверяем валидность даты
+            if (isNaN(date.getTime())) {
+                console.warn('⚠️ Некорректная дата тренировки:', workout.date);
+                return;
+            }
+            
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
+                               'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+            const monthLabel = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+            
+            if (!monthlyStats[monthKey]) {
+                monthlyStats[monthKey] = {
+                    label: monthLabel,
+                    workouts: [],
+                    totalDuration: 0,
+                    totalExercises: 0,
+                    avgHR: 0,
+                    avgVOI: 0,
+                    exerciseTypes: {}
+                };
+            }
+            
+            monthlyStats[monthKey].workouts.push(workout);
+            
+            // Подсчитываем метрики тренировки
+            if (workout.exercises && Array.isArray(workout.exercises) && workout.exercises.length > 0) {
+                const workoutDuration = workout.exercises.reduce((sum, e) => sum + (parseFloat(e.duration) || 0), 0);
+                monthlyStats[monthKey].totalDuration += workoutDuration;
+                monthlyStats[monthKey].totalExercises += workout.exercises.length;
+                
+                // Подсчет среднего ЧСС и УОИ
+                const workoutAvgHR = workout.exercises.reduce((sum, e) => sum + (parseInt(e.avgHR) || 0), 0) / workout.exercises.length;
+                const workoutAvgVOI = workout.exercises.reduce((sum, e) => sum + (parseFloat(e.voi) || 0), 0) / workout.exercises.length;
+                monthlyStats[monthKey].avgHR += workoutAvgHR;
+                monthlyStats[monthKey].avgVOI += workoutAvgVOI;
+                
+                // Подсчет по типам упражнений
+                workout.exercises.forEach(ex => {
+                    if (ex.type && ex.duration) {
+                        const typeName = getExerciseTypeName(ex.type);
+                        if (!monthlyStats[monthKey].exerciseTypes[typeName]) {
+                            monthlyStats[monthKey].exerciseTypes[typeName] = 0;
+                        }
+                        monthlyStats[monthKey].exerciseTypes[typeName] += parseFloat(ex.duration) || 0;
+                    }
+                });
+            }
+        } catch (error) {
+            console.warn('⚠️ Ошибка при обработке тренировки:', workout, error);
+        }
     });
     
     // Вычисляем средние значения
     Object.keys(monthlyStats).forEach(key => {
         const stat = monthlyStats[key];
-        stat.avgHR = stat.workouts.length > 0 ? (stat.avgHR / stat.workouts.length).toFixed(1) : 0;
-        stat.avgVOI = stat.workouts.length > 0 ? (stat.avgVOI / stat.workouts.length).toFixed(1) : 0;
+        if (stat.workouts.length > 0) {
+            stat.avgHR = (stat.avgHR / stat.workouts.length).toFixed(1);
+            stat.avgVOI = (stat.avgVOI / stat.workouts.length).toFixed(1);
+        } else {
+            stat.avgHR = '0';
+            stat.avgVOI = '0';
+        }
     });
     
     return monthlyStats;
@@ -1489,51 +1556,80 @@ function groupByWeek(workouts) {
     const weeklyStats = {};
     
     workouts.forEach(workout => {
-        const date = new Date(workout.date);
-        const weekStart = getWeekStart(date);
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-        
-        const weekKey = `${weekStart.getFullYear()}-W${getWeekNumber(weekStart)}`;
-        const weekLabel = `${formatDate(weekStart.toISOString().split('T')[0])} - ${formatDate(weekEnd.toISOString().split('T')[0])}`;
-        
-        if (!weeklyStats[weekKey]) {
-            weeklyStats[weekKey] = {
-                label: weekLabel,
-                workouts: [],
-                totalDuration: 0,
-                totalExercises: 0,
-                avgHR: 0,
-                avgVOI: 0,
-                exerciseTypes: {}
-            };
-        }
-        
-        weeklyStats[weekKey].workouts.push(workout);
-        weeklyStats[weekKey].totalDuration += workout.exercises.reduce((sum, e) => sum + e.duration, 0);
-        weeklyStats[weekKey].totalExercises += workout.exercises.length;
-        
-        // Подсчет среднего ЧСС и УОИ
-        const workoutAvgHR = workout.exercises.reduce((sum, e) => sum + e.avgHR, 0) / workout.exercises.length;
-        const workoutAvgVOI = workout.exercises.reduce((sum, e) => sum + parseFloat(e.voi), 0) / workout.exercises.length;
-        weeklyStats[weekKey].avgHR += workoutAvgHR;
-        weeklyStats[weekKey].avgVOI += workoutAvgVOI;
-        
-        // Подсчет по типам упражнений
-        workout.exercises.forEach(ex => {
-            const typeName = getExerciseTypeName(ex.type);
-            if (!weeklyStats[weekKey].exerciseTypes[typeName]) {
-                weeklyStats[weekKey].exerciseTypes[typeName] = 0;
+        try {
+            // Парсим дату, поддерживаем разные форматы
+            let date;
+            if (typeof workout.date === 'string') {
+                date = new Date(workout.date);
+            } else {
+                date = workout.date;
             }
-            weeklyStats[weekKey].exerciseTypes[typeName] += ex.duration;
-        });
+            
+            // Проверяем валидность даты
+            if (isNaN(date.getTime())) {
+                console.warn('⚠️ Некорректная дата тренировки:', workout.date);
+                return;
+            }
+            
+            const weekStart = getWeekStart(date);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            
+            const weekKey = `${weekStart.getFullYear()}-W${String(getWeekNumber(weekStart)).padStart(2, '0')}`;
+            const weekLabel = `${formatDate(weekStart.toISOString().split('T')[0])} - ${formatDate(weekEnd.toISOString().split('T')[0])}`;
+            
+            if (!weeklyStats[weekKey]) {
+                weeklyStats[weekKey] = {
+                    label: weekLabel,
+                    workouts: [],
+                    totalDuration: 0,
+                    totalExercises: 0,
+                    avgHR: 0,
+                    avgVOI: 0,
+                    exerciseTypes: {}
+                };
+            }
+            
+            weeklyStats[weekKey].workouts.push(workout);
+            
+            // Подсчитываем метрики тренировки
+            if (workout.exercises && Array.isArray(workout.exercises) && workout.exercises.length > 0) {
+                const workoutDuration = workout.exercises.reduce((sum, e) => sum + (parseFloat(e.duration) || 0), 0);
+                weeklyStats[weekKey].totalDuration += workoutDuration;
+                weeklyStats[weekKey].totalExercises += workout.exercises.length;
+                
+                // Подсчет среднего ЧСС и УОИ
+                const workoutAvgHR = workout.exercises.reduce((sum, e) => sum + (parseInt(e.avgHR) || 0), 0) / workout.exercises.length;
+                const workoutAvgVOI = workout.exercises.reduce((sum, e) => sum + (parseFloat(e.voi) || 0), 0) / workout.exercises.length;
+                weeklyStats[weekKey].avgHR += workoutAvgHR;
+                weeklyStats[weekKey].avgVOI += workoutAvgVOI;
+                
+                // Подсчет по типам упражнений
+                workout.exercises.forEach(ex => {
+                    if (ex.type && ex.duration) {
+                        const typeName = getExerciseTypeName(ex.type);
+                        if (!weeklyStats[weekKey].exerciseTypes[typeName]) {
+                            weeklyStats[weekKey].exerciseTypes[typeName] = 0;
+                        }
+                        weeklyStats[weekKey].exerciseTypes[typeName] += parseFloat(ex.duration) || 0;
+                    }
+                });
+            }
+        } catch (error) {
+            console.warn('⚠️ Ошибка при обработке тренировки:', workout, error);
+        }
     });
     
     // Вычисляем средние значения
     Object.keys(weeklyStats).forEach(key => {
         const stat = weeklyStats[key];
-        stat.avgHR = stat.workouts.length > 0 ? (stat.avgHR / stat.workouts.length).toFixed(1) : 0;
-        stat.avgVOI = stat.workouts.length > 0 ? (stat.avgVOI / stat.workouts.length).toFixed(1) : 0;
+        if (stat.workouts.length > 0) {
+            stat.avgHR = (stat.avgHR / stat.workouts.length).toFixed(1);
+            stat.avgVOI = (stat.avgVOI / stat.workouts.length).toFixed(1);
+        } else {
+            stat.avgHR = '0';
+            stat.avgVOI = '0';
+        }
     });
     
     return weeklyStats;
