@@ -1221,6 +1221,27 @@ body::before {
     padding: 10px 0;
 }
 
+.sub-periods-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border-left: 3px solid #9c27b0;
+}
+
+.sub-periods-info .stat-label {
+    font-weight: 600;
+    color: #7b1fa2;
+}
+
+.sub-periods-info .stat-value {
+    color: #6a1b9a;
+    font-weight: 700;
+}
+
 .exercise-type-stat {
     display: flex;
     align-items: center;

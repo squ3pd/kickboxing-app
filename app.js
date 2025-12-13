@@ -1413,18 +1413,39 @@ async function loadStatistics() {
         
         console.log('📅 Тренировки отсортированы. Первая дата:', validWorkouts[0]?.date, 'Последняя:', validWorkouts[validWorkouts.length - 1]?.date);
         
-        // Группируем тренировки по месяцам
-        const monthlyStats = groupByMonth(validWorkouts);
-        console.log('📆 Статистика по месяцам:', Object.keys(monthlyStats).length, 'месяцев');
+        // Иерархическая группировка: Дни → Недели → Месяцы → Кварталы
+        const dailyStats = groupByDay(validWorkouts);
+        console.log('📆 Статистика по дням:', Object.keys(dailyStats).length, 'дней');
         
-        // Группируем тренировки по неделям
-        const weeklyStats = groupByWeek(validWorkouts);
+        const weeklyStats = aggregateDaysToWeeks(dailyStats);
         console.log('📅 Статистика по неделям:', Object.keys(weeklyStats).length, 'недель');
         
-        // Отображаем статистику
+        const monthlyStats = aggregateWeeksToMonths(weeklyStats);
+        console.log('📆 Статистика по месяцам:', Object.keys(monthlyStats).length, 'месяцев');
+        
+        const quarterlyStats = aggregateMonthsToQuarters(monthlyStats);
+        console.log('📊 Статистика по кварталам:', Object.keys(quarterlyStats).length, 'кварталов');
+        
+        // Отображаем статистику в иерархическом порядке
         container.innerHTML = '';
         
-        // Статистика по месяцам
+        // Статистика по кварталам/сезонам
+        if (Object.keys(quarterlyStats).length > 0) {
+            const quarterlySection = document.createElement('div');
+            quarterlySection.className = 'statistics-section';
+            quarterlySection.innerHTML = '<h3 class="statistics-title">Статистика по кварталам/сезонам</h3>';
+            
+            const sortedQuarters = Object.keys(quarterlyStats).sort();
+            sortedQuarters.forEach(quarterKey => {
+                const stat = quarterlyStats[quarterKey];
+                const card = createPeriodStatCard(quarterKey, stat, 'quarter');
+                quarterlySection.appendChild(card);
+            });
+            
+            container.appendChild(quarterlySection);
+        }
+        
+        // Статистика по месяцам (с детализацией по неделям)
         if (Object.keys(monthlyStats).length > 0) {
             const monthlySection = document.createElement('div');
             monthlySection.className = 'statistics-section';
@@ -1433,23 +1454,23 @@ async function loadStatistics() {
             const sortedMonths = Object.keys(monthlyStats).sort();
             sortedMonths.forEach(monthKey => {
                 const stat = monthlyStats[monthKey];
-                const card = createPeriodStatCard(monthKey, stat);
+                const card = createPeriodStatCard(monthKey, stat, 'month');
                 monthlySection.appendChild(card);
             });
             
             container.appendChild(monthlySection);
         }
         
-        // Статистика по неделям (последние 8 недель)
+        // Статистика по неделям (с детализацией по дням)
         if (Object.keys(weeklyStats).length > 0) {
             const weeklySection = document.createElement('div');
             weeklySection.className = 'statistics-section';
-            weeklySection.innerHTML = '<h3 class="statistics-title">Статистика по неделям (последние 8 недель)</h3>';
+            weeklySection.innerHTML = '<h3 class="statistics-title">Статистика по неделям</h3>';
             
-            const sortedWeeks = Object.keys(weeklyStats).sort().slice(-8);
+            const sortedWeeks = Object.keys(weeklyStats).sort().slice(-12); // Последние 12 недель
             sortedWeeks.forEach(weekKey => {
                 const stat = weeklyStats[weekKey];
-                const card = createPeriodStatCard(weekKey, stat);
+                const card = createPeriodStatCard(weekKey, stat, 'week');
                 weeklySection.appendChild(card);
             });
             
@@ -1457,7 +1478,7 @@ async function loadStatistics() {
         }
         
         // Если нет данных для отображения
-        if (Object.keys(monthlyStats).length === 0 && Object.keys(weeklyStats).length === 0) {
+        if (Object.keys(quarterlyStats).length === 0 && Object.keys(monthlyStats).length === 0 && Object.keys(weeklyStats).length === 0) {
             container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Не удалось сгруппировать тренировки по периодам. Проверьте даты тренировок.</p>';
         }
         
@@ -1469,7 +1490,270 @@ async function loadStatistics() {
     }
 }
 
-// Группировка тренировок по месяцам
+// Группировка тренировок по дням (базовый уровень)
+function groupByDay(workouts) {
+    const dailyStats = {};
+    
+    workouts.forEach(workout => {
+        try {
+            let date;
+            if (typeof workout.date === 'string') {
+                date = new Date(workout.date);
+            } else {
+                date = workout.date;
+            }
+            
+            if (isNaN(date.getTime())) {
+                console.warn('⚠️ Некорректная дата тренировки:', workout.date);
+                return;
+            }
+            
+            const dayKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+            const dayLabel = formatDate(dayKey);
+            
+            if (!dailyStats[dayKey]) {
+                dailyStats[dayKey] = {
+                    label: dayLabel,
+                    date: date,
+                    workouts: [],
+                    totalDuration: 0,
+                    totalExercises: 0,
+                    avgHR: 0,
+                    avgVOI: 0,
+                    exerciseTypes: {}
+                };
+            }
+            
+            dailyStats[dayKey].workouts.push(workout);
+            
+            if (workout.exercises && Array.isArray(workout.exercises) && workout.exercises.length > 0) {
+                const workoutDuration = workout.exercises.reduce((sum, e) => sum + (parseFloat(e.duration) || 0), 0);
+                dailyStats[dayKey].totalDuration += workoutDuration;
+                dailyStats[dayKey].totalExercises += workout.exercises.length;
+                
+                const workoutAvgHR = workout.exercises.reduce((sum, e) => sum + (parseInt(e.avgHR) || 0), 0) / workout.exercises.length;
+                const workoutAvgVOI = workout.exercises.reduce((sum, e) => sum + (parseFloat(e.voi) || 0), 0) / workout.exercises.length;
+                dailyStats[dayKey].avgHR += workoutAvgHR;
+                dailyStats[dayKey].avgVOI += workoutAvgVOI;
+                
+                workout.exercises.forEach(ex => {
+                    if (ex.type && ex.duration) {
+                        const typeName = getExerciseTypeName(ex.type);
+                        if (!dailyStats[dayKey].exerciseTypes[typeName]) {
+                            dailyStats[dayKey].exerciseTypes[typeName] = 0;
+                        }
+                        dailyStats[dayKey].exerciseTypes[typeName] += parseFloat(ex.duration) || 0;
+                    }
+                });
+            }
+        } catch (error) {
+            console.warn('⚠️ Ошибка при обработке тренировки:', workout, error);
+        }
+    });
+    
+    // Вычисляем средние значения для каждого дня
+    Object.keys(dailyStats).forEach(key => {
+        const stat = dailyStats[key];
+        if (stat.workouts.length > 0) {
+            stat.avgHR = (stat.avgHR / stat.workouts.length).toFixed(1);
+            stat.avgVOI = (stat.avgVOI / stat.workouts.length).toFixed(1);
+        } else {
+            stat.avgHR = '0';
+            stat.avgVOI = '0';
+        }
+    });
+    
+    return dailyStats;
+}
+
+// Агрегация дней в недели
+function aggregateDaysToWeeks(dailyStats) {
+    const weeklyStats = {};
+    
+    Object.keys(dailyStats).forEach(dayKey => {
+        const dayStat = dailyStats[dayKey];
+        const date = dayStat.date;
+        const weekStart = getWeekStart(date);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        
+        const weekKey = `${weekStart.getFullYear()}-W${String(getWeekNumber(weekStart)).padStart(2, '0')}`;
+        const weekLabel = `${formatDate(weekStart.toISOString().split('T')[0])} - ${formatDate(weekEnd.toISOString().split('T')[0])}`;
+        
+        if (!weeklyStats[weekKey]) {
+            weeklyStats[weekKey] = {
+                label: weekLabel,
+                weekStart: weekStart,
+                days: [],
+                workouts: [],
+                totalDuration: 0,
+                totalExercises: 0,
+                avgHR: 0,
+                avgVOI: 0,
+                exerciseTypes: {}
+            };
+        }
+        
+        weeklyStats[weekKey].days.push(dayStat);
+        weeklyStats[weekKey].workouts.push(...dayStat.workouts);
+        weeklyStats[weekKey].totalDuration += dayStat.totalDuration;
+        weeklyStats[weekKey].totalExercises += dayStat.totalExercises;
+        weeklyStats[weekKey].avgHR += parseFloat(dayStat.avgHR);
+        weeklyStats[weekKey].avgVOI += parseFloat(dayStat.avgVOI);
+        
+        // Агрегируем типы упражнений
+        Object.keys(dayStat.exerciseTypes).forEach(type => {
+            if (!weeklyStats[weekKey].exerciseTypes[type]) {
+                weeklyStats[weekKey].exerciseTypes[type] = 0;
+            }
+            weeklyStats[weekKey].exerciseTypes[type] += dayStat.exerciseTypes[type];
+        });
+    });
+    
+    // Вычисляем средние значения для недель
+    Object.keys(weeklyStats).forEach(key => {
+        const stat = weeklyStats[key];
+        if (stat.days.length > 0) {
+            stat.avgHR = (stat.avgHR / stat.days.length).toFixed(1);
+            stat.avgVOI = (stat.avgVOI / stat.days.length).toFixed(1);
+        } else {
+            stat.avgHR = '0';
+            stat.avgVOI = '0';
+        }
+    });
+    
+    return weeklyStats;
+}
+
+// Агрегация недель в месяцы
+function aggregateWeeksToMonths(weeklyStats) {
+    const monthlyStats = {};
+    
+    Object.keys(weeklyStats).forEach(weekKey => {
+        const weekStat = weeklyStats[weekKey];
+        const date = weekStat.weekStart;
+        
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
+                           'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+        const monthLabel = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+        
+        if (!monthlyStats[monthKey]) {
+            monthlyStats[monthKey] = {
+                label: monthLabel,
+                month: date.getMonth(),
+                year: date.getFullYear(),
+                weeks: [],
+                workouts: [],
+                totalDuration: 0,
+                totalExercises: 0,
+                avgHR: 0,
+                avgVOI: 0,
+                exerciseTypes: {}
+            };
+        }
+        
+        monthlyStats[monthKey].weeks.push(weekStat);
+        monthlyStats[monthKey].workouts.push(...weekStat.workouts);
+        monthlyStats[monthKey].totalDuration += weekStat.totalDuration;
+        monthlyStats[monthKey].totalExercises += weekStat.totalExercises;
+        monthlyStats[monthKey].avgHR += parseFloat(weekStat.avgHR);
+        monthlyStats[monthKey].avgVOI += parseFloat(weekStat.avgVOI);
+        
+        // Агрегируем типы упражнений
+        Object.keys(weekStat.exerciseTypes).forEach(type => {
+            if (!monthlyStats[monthKey].exerciseTypes[type]) {
+                monthlyStats[monthKey].exerciseTypes[type] = 0;
+            }
+            monthlyStats[monthKey].exerciseTypes[type] += weekStat.exerciseTypes[type];
+        });
+    });
+    
+    // Вычисляем средние значения для месяцев
+    Object.keys(monthlyStats).forEach(key => {
+        const stat = monthlyStats[key];
+        if (stat.weeks.length > 0) {
+            stat.avgHR = (stat.avgHR / stat.weeks.length).toFixed(1);
+            stat.avgVOI = (stat.avgVOI / stat.weeks.length).toFixed(1);
+        } else {
+            stat.avgHR = '0';
+            stat.avgVOI = '0';
+        }
+    });
+    
+    return monthlyStats;
+}
+
+// Агрегация месяцев в кварталы/сезоны
+function aggregateMonthsToQuarters(monthlyStats) {
+    const quarterlyStats = {};
+    
+    Object.keys(monthlyStats).forEach(monthKey => {
+        const monthStat = monthlyStats[monthKey];
+        const month = monthStat.month;
+        const year = monthStat.year;
+        
+        // Определяем квартал (1-4)
+        const quarter = Math.floor(month / 3) + 1;
+        const quarterKey = `${year}-Q${quarter}`;
+        
+        // Определяем сезон
+        let season;
+        if (month >= 2 && month <= 4) season = 'Весна';
+        else if (month >= 5 && month <= 7) season = 'Лето';
+        else if (month >= 8 && month <= 10) season = 'Осень';
+        else season = 'Зима';
+        
+        const quarterLabel = `${year} год, ${quarter} квартал (${season})`;
+        
+        if (!quarterlyStats[quarterKey]) {
+            quarterlyStats[quarterKey] = {
+                label: quarterLabel,
+                quarter: quarter,
+                year: year,
+                season: season,
+                months: [],
+                workouts: [],
+                totalDuration: 0,
+                totalExercises: 0,
+                avgHR: 0,
+                avgVOI: 0,
+                exerciseTypes: {}
+            };
+        }
+        
+        quarterlyStats[quarterKey].months.push(monthStat);
+        quarterlyStats[quarterKey].workouts.push(...monthStat.workouts);
+        quarterlyStats[quarterKey].totalDuration += monthStat.totalDuration;
+        quarterlyStats[quarterKey].totalExercises += monthStat.totalExercises;
+        quarterlyStats[quarterKey].avgHR += parseFloat(monthStat.avgHR);
+        quarterlyStats[quarterKey].avgVOI += parseFloat(monthStat.avgVOI);
+        
+        // Агрегируем типы упражнений
+        Object.keys(monthStat.exerciseTypes).forEach(type => {
+            if (!quarterlyStats[quarterKey].exerciseTypes[type]) {
+                quarterlyStats[quarterKey].exerciseTypes[type] = 0;
+            }
+            quarterlyStats[quarterKey].exerciseTypes[type] += monthStat.exerciseTypes[type];
+        });
+    });
+    
+    // Вычисляем средние значения для кварталов
+    Object.keys(quarterlyStats).forEach(key => {
+        const stat = quarterlyStats[key];
+        if (stat.months.length > 0) {
+            stat.avgHR = (stat.avgHR / stat.months.length).toFixed(1);
+            stat.avgVOI = (stat.avgVOI / stat.months.length).toFixed(1);
+        } else {
+            stat.avgHR = '0';
+            stat.avgVOI = '0';
+        }
+    });
+    
+    return quarterlyStats;
+}
+
+// Старая функция groupByMonth (оставляем для совместимости, но не используем)
 function groupByMonth(workouts) {
     const monthlyStats = {};
     
@@ -1653,13 +1937,35 @@ function getWeekNumber(date) {
 }
 
 // Создание карточки статистики периода
-function createPeriodStatCard(periodKey, stat) {
+function createPeriodStatCard(periodKey, stat, level = 'default') {
     const card = document.createElement('div');
     card.className = 'period-stat-card';
+    
+    // Определяем количество подпериодов в зависимости от уровня
+    let subPeriodsCount = 0;
+    let subPeriodsLabel = '';
+    if (level === 'quarter' && stat.months) {
+        subPeriodsCount = stat.months.length;
+        subPeriodsLabel = 'месяцев';
+    } else if (level === 'month' && stat.weeks) {
+        subPeriodsCount = stat.weeks.length;
+        subPeriodsLabel = 'недель';
+    } else if (level === 'week' && stat.days) {
+        subPeriodsCount = stat.days.length;
+        subPeriodsLabel = 'дней';
+    }
     
     const exerciseTypesList = Object.keys(stat.exerciseTypes).map(type => {
         return `<span class="exercise-type-badge">${type}: ${stat.exerciseTypes[type].toFixed(1)} мин</span>`;
     }).join('');
+    
+    let subPeriodsInfo = '';
+    if (subPeriodsCount > 0) {
+        subPeriodsInfo = `<div class="sub-periods-info">
+            <span class="stat-label">Состоит из:</span>
+            <span class="stat-value">${subPeriodsCount} ${subPeriodsLabel}</span>
+        </div>`;
+    }
     
     card.innerHTML = `
         <div class="period-header">
@@ -1667,6 +1973,7 @@ function createPeriodStatCard(periodKey, stat) {
             <span class="workout-count">${stat.workouts.length} тренировок</span>
         </div>
         <div class="period-stats">
+            ${subPeriodsInfo}
             <div class="stat-row">
                 <span class="stat-label">Общее время:</span>
                 <span class="stat-value">${stat.totalDuration.toFixed(1)} мин</span>
