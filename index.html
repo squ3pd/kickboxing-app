@@ -116,12 +116,10 @@
                 <div class="button-group">
                     <button class="exercise-type-btn" data-type="ofp" onclick="selectExerciseType(this, 'ofp')">ОФП</button>
                     <button class="exercise-type-btn" data-type="spu" onclick="selectExerciseType(this, 'spu')">СПУ</button>
-                    <button class="exercise-type-btn" data-type="us" onclick="selectExerciseType(this, 'us')">УС</button>
                     <button class="exercise-type-btn" data-type="usttm" onclick="selectExerciseType(this, 'usttm')">УСТТМ</button>
-                    <button class="exercise-type-btn" data-type="ttm" onclick="selectExerciseType(this, 'ttm')">ТТМ</button>
-                    <button class="exercise-type-btn" data-type="sfp" onclick="selectExerciseType(this, 'sfp')">СФП</button>
-                    <button class="exercise-type-btn" data-type="rv" onclick="selectExerciseType(this, 'rv')">РВ</button>
-                    <button class="exercise-type-btn" data-type="rs" onclick="selectExerciseType(this, 'rs')">РС</button>
+                    <button class="exercise-type-btn" data-type="us" onclick="selectExerciseType(this, 'us')">УС</button>
+                    <button class="exercise-type-btn" data-type="ub" onclick="selectExerciseType(this, 'ub')">УБ</button>
+                    <button class="exercise-type-btn" data-type="vbs" onclick="selectExerciseType(this, 'vbs')">ВБС</button>
                 </div>
                 
                 <label>Продолжительность (мин)*</label>
@@ -179,10 +177,26 @@
             </div>
 
             <div id="statisticsContainer" style="display: none;">
+                <div class="form-section" style="margin-bottom: 20px;">
+                    <label>Выберите промежуток дат</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <input type="date" id="statisticsDateFrom" class="form-input" style="flex: 1; min-width: 150px;">
+                        <input type="date" id="statisticsDateTo" class="form-input" style="flex: 1; min-width: 150px;">
+                        <button class="action-btn blue" onclick="loadStatistics()" style="flex: 0 0 auto;">Применить</button>
+                    </div>
+                </div>
                 <!-- Статистика по периодам будет отображаться здесь -->
             </div>
 
             <div id="chartsContainer" style="display: none;">
+                <div class="form-section" style="margin-bottom: 20px;">
+                    <label>Выберите промежуток дат</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <input type="date" id="chartsDateFrom" class="form-input" style="flex: 1; min-width: 150px;">
+                        <input type="date" id="chartsDateTo" class="form-input" style="flex: 1; min-width: 150px;">
+                        <button class="action-btn blue" onclick="loadCharts()" style="flex: 0 0 auto;">Применить</button>
+                    </div>
+                </div>
                 <!-- Графики будут отображаться здесь -->
             </div>
         </div>
